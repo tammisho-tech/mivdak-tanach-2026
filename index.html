@@ -1,0 +1,3440 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>כלי לחישוב ציונים — מבדק בתנ"ך כיתות ו'</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary: #4f46e5;
+    --primary-dark: #4338ca;
+    --primary-light: #eef2ff;
+    --success: #059669;
+    --success-light: #d1fae5;
+    --warning: #d97706;
+    --warning-light: #fef3c7;
+    --danger:  #dc2626;
+    --danger-light:  #fee2e2;
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Heebo', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    padding: .65rem 1.1rem; border-radius: .65rem; font-weight: 600;
+    transition: all .15s ease; cursor: pointer; border: 1px solid transparent;
+    font-size: .95rem; white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: white; color: var(--ink); border-color: var(--border); }
+  .btn-secondary:hover { background: #f1f5f9; }
+  .btn-ghost { background: transparent; color: var(--ink); }
+  .btn-ghost:hover { background: #f1f5f9; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-success:hover { background: #047857; }
+  .btn-danger-ghost { color: var(--danger); background: transparent; }
+  .btn-danger-ghost:hover { background: var(--danger-light); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+  }
+
+  .input {
+    width: 100%;
+    padding: .6rem .85rem;
+    border-radius: .65rem;
+    border: 1px solid var(--border);
+    background: white;
+    font-family: inherit;
+    font-size: .95rem;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.15);
+  }
+
+  /* Score buttons */
+  .score-btn {
+    min-width: 3.25rem;
+    padding: .65rem .9rem;
+    border-radius: .65rem;
+    border: 2px solid var(--border);
+    background: white;
+    font-weight: 700;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all .12s ease;
+    color: var(--ink);
+  }
+  .score-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    transform: translateY(-1px);
+  }
+  .score-btn.selected {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 10px rgba(79,70,229,.25);
+  }
+  .score-btn.zero.selected {
+    background: var(--muted);
+    border-color: var(--muted);
+  }
+
+  /* Each part = full-width section. Question boxes in 3-column grid. */
+  .part-section { margin-bottom: 1.5rem; }
+  .part-section .part-header {
+    margin: 0 0 .65rem;
+    padding: .6rem .9rem;
+    font-size: .95rem;
+  }
+  .part-questions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .55rem;
+  }
+  @media (max-width: 900px) { .part-questions { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .part-questions { grid-template-columns: 1fr; } }
+
+  .q-box {
+    background: white;
+    border: 1px solid var(--border);
+    border-right-width: 4px;
+    border-radius: .55rem;
+    padding: .55rem .7rem;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    transition: background .12s;
+  }
+  .q-box.answered { background: #f8fafc; }
+  .q-box-title {
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .q-box-type {
+    font-size: .7rem;
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 1px;
+  }
+  .q-sub {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .q-sub-letter {
+    font-weight: 700;
+    font-size: .85rem;
+    min-width: 1.4rem;
+    color: #475569;
+  }
+  .q-buttons {
+    display: flex;
+    gap: .25rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .q-buttons .score-btn {
+    min-width: 1.95rem !important;
+    padding: .25rem .45rem !important;
+    font-size: .9rem !important;
+  }
+  .clear-btn {
+    border: none !important;
+    background: transparent !important;
+    min-width: auto !important;
+    font-size: .8rem !important;
+    color: #94a3b8;
+    padding: 0 .35rem !important;
+  }
+  /* legacy classes kept for compat */
+  .questions-grid { display: contents; }
+  .question-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: .55rem;
+    padding: .55rem .7rem;
+    transition: all .12s ease;
+    display: flex;
+    flex-direction: column;
+    gap: .4rem;
+  }
+  .question-card .q-info {
+    min-width: 0;
+  }
+  .question-card .q-label {
+    font-weight: 700;
+    font-size: .88rem;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .question-card .q-meta {
+    font-size: .7rem;
+    line-height: 1.2;
+    margin-top: 1px;
+  }
+  .question-card .q-buttons {
+    display: flex;
+    gap: .25rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .question-card.focused {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+  }
+  .question-card.answered {
+    background: #f8fafc;
+  }
+  .score-btn {
+    min-width: 2.45rem !important;
+    padding: .35rem .55rem !important;
+    font-size: .95rem !important;
+  }
+
+  .part-header {
+    color: white;
+    padding: .95rem 1.1rem;
+    border-radius: .75rem;
+    margin: 0 0 1rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 4px 12px rgba(15,23,42,.12);
+  }
+  /* Part tabs */
+  .part-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .3rem;
+    padding: .35rem;
+    background: #f1f5f9;
+    border-radius: .75rem;
+    margin-bottom: 1rem;
+  }
+  .part-tab {
+    padding: .65rem .75rem;
+    border-radius: .55rem;
+    cursor: pointer;
+    text-align: center;
+    font-weight: 600;
+    transition: all .15s;
+    background: transparent;
+    border: 2px solid transparent;
+    color: #64748b;
+    font-size: .9rem;
+    line-height: 1.2;
+  }
+  .part-tab:hover { background: rgba(255,255,255,.6); color: #0f172a; }
+  .part-tab.active {
+    background: white;
+    color: var(--tab-color, var(--primary));
+    border-color: var(--tab-color, var(--primary));
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  .part-tab .pt-name { font-size: .9rem; font-weight: 700; }
+  .part-tab .pt-progress {
+    font-size: .72rem; margin-top: .2rem; color: inherit; opacity: .8;
+  }
+  .part-tab .pt-check { color: #059669; font-weight: 800; }
+
+  .part-nav-bottom {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+  }
+  .part-header .badge {
+    background: rgba(255,255,255,.22);
+    border-radius: 9999px;
+    padding: .2rem .75rem;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+  .part-header .part-prog {
+    background: rgba(255,255,255,.18);
+    height: 4px; border-radius: 9999px; overflow: hidden;
+    width: 100%; margin-top: .4rem;
+  }
+  .part-header .part-prog-fill {
+    height: 100%; background: white; transition: width .3s;
+  }
+  .question-card.has-side {
+    border-right-width: 4px;
+  }
+  .skill-bar-wrap.current-part {
+    background: #fafbff;
+    border-radius: .55rem;
+    padding: .55rem .65rem;
+    margin: 0 -.65rem .9rem;
+    box-shadow: 0 0 0 2px rgba(79,70,229,.18);
+  }
+  .skill-bar-wrap.current-part .current-marker {
+    color: var(--primary);
+    font-weight: 800;
+  }
+  /* Type cards (side-by-side) */
+  .type-card {
+    border-radius: .65rem;
+    padding: .7rem .85rem;
+    transition: transform .12s;
+  }
+  .type-card:hover { transform: translateY(-1px); }
+  .type-card-track {
+    height: 5px; border-radius: 9999px; overflow: hidden;
+  }
+  .type-card-fill {
+    height: 100%; border-radius: 9999px;
+    transition: width .35s cubic-bezier(.34,.84,.36,1);
+  }
+  /* Compact single-row bar */
+  .compact-bar {
+    transition: background .15s;
+  }
+  .compact-bar .cb-dot {
+    width: 9px; height: 9px; border-radius: 9999px;
+    display: inline-block; flex-shrink: 0;
+  }
+  .compact-bar .cb-track {
+    height: 7px; border-radius: 9999px; overflow: hidden;
+  }
+  .compact-bar .cb-fill {
+    height: 100%; border-radius: 9999px;
+    transition: width .35s cubic-bezier(.34,.84,.36,1);
+  }
+  .compact-bar.current-part {
+    background: linear-gradient(to left, transparent, #fafbff 30%);
+    border-radius: .5rem;
+    padding: .4rem .5rem;
+    margin: 0 -.5rem;
+    position: relative;
+  }
+  .compact-bar.current-part::before {
+    content: '';
+    position: absolute; right: -2px; top: 4px; bottom: 4px;
+    width: 3px; border-radius: 9999px;
+    background: var(--primary);
+  }
+  .part-divider {
+    display: flex; align-items: center; gap: .65rem;
+    color: var(--muted); font-size: .75rem; font-weight: 600;
+    margin: .25rem 0 .5rem;
+  }
+  .part-divider::after {
+    content:''; flex:1; border-top: 1px dashed var(--border);
+  }
+
+  /* Progress bars */
+  .skill-bar-wrap {
+    margin-bottom: .9rem;
+  }
+  .skill-bar-track {
+    height: .65rem;
+    background: #f1f5f9;
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+  .skill-bar-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width .4s cubic-bezier(.34,.84,.36,1), background-color .25s;
+    background: var(--success);
+  }
+  .skill-bar-fill.low { background: var(--danger); }
+  .skill-bar-fill.mid { background: var(--warning); }
+  .skill-bar-fill.high { background: var(--success); }
+
+  /* Score circle */
+  .score-ring {
+    width: 145px; height: 145px;
+    border-radius: 9999px;
+    background: conic-gradient(var(--primary) 0%, #f1f5f9 0%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    transition: background 0.5s ease;
+    margin: 0 auto;
+  }
+  .score-ring::before {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border-radius: 9999px;
+    background: white;
+  }
+  .score-ring-content {
+    position: relative; z-index: 1;
+    text-align: center;
+  }
+  .score-ring-value { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--ink); }
+  .score-ring-label { font-size: .7rem; color: var(--muted); margin-top: .25rem; }
+
+  /* Tag chips */
+  .chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .15rem .65rem;
+    border-radius: 9999px;
+    font-size: .8rem;
+    font-weight: 500;
+    background: #f1f5f9;
+    color: var(--muted);
+  }
+  .chip.regular  { background: #eef2ff; color: var(--primary-dark); }
+  .chip.inclusion{ background: #fef3c7; color: #92400e; }
+  .chip.immigrant{ background: #d1fae5; color: #065f46; }
+  .chip.accom    { background: #fee2e2; color: #991b1b; }
+
+  /* Status tabs */
+  .nav-pill {
+    padding: .55rem 1.05rem;
+    border-radius: 9999px;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: .92rem;
+    border: 1px solid transparent;
+    transition: all .15s;
+  }
+  .nav-pill:hover { color: var(--ink); background: #f1f5f9; }
+  .nav-pill.active {
+    background: white;
+    color: var(--primary-dark);
+    border-color: var(--border);
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: white;
+    padding: .7rem 1.25rem; border-radius: .65rem;
+    font-weight: 500; font-size: .95rem;
+    box-shadow: 0 10px 25px rgba(0,0,0,.18);
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s, transform .25s;
+    z-index: 9999;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  .toast.success { background: var(--success); }
+  .toast.danger  { background: var(--danger);  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed; inset: 0; background: rgba(15,23,42,.55);
+    display: none; align-items: center; justify-content: center;
+    z-index: 1000; padding: 1rem;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: white; border-radius: 1rem; max-width: 720px; width: 100%;
+    padding: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,.2);
+    max-height: 92vh; overflow-y: auto;
+  }
+  .modal::-webkit-scrollbar { width: 8px; }
+  .modal::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+  /* Sticky scrollbar */
+  .scroll-y { overflow-y: auto; }
+  .scroll-y::-webkit-scrollbar { width: 8px; }
+  .scroll-y::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  .scroll-y::-webkit-scrollbar-track { background: transparent; }
+
+  /* Roster row */
+  .roster-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1.6fr auto auto;
+    gap: .65rem;
+    align-items: center;
+    padding: .6rem .85rem;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+  }
+  .roster-row:hover { background: #f8fafc; }
+  .roster-row:last-child { border-bottom: none; }
+  .roster-row.complete { background: #f0fdf4; }
+
+  .pill-status {
+    width: 8px; height: 8px; border-radius: 9999px;
+    display: inline-block;
+    background: var(--border);
+  }
+  .pill-status.done { background: var(--success); }
+  .pill-status.partial { background: var(--warning); }
+
+  @media (max-width: 880px) {
+    .grading-layout { grid-template-columns: 1fr !important; }
+    .roster-row {
+      grid-template-columns: 1fr 1fr auto;
+    }
+    .roster-row .hide-mobile { display: none; }
+  }
+
+  /* Print styles - feedback slips */
+  @media print {
+    body { background: white; }
+    .no-print { display: none !important; }
+    .print-only { display: block !important; }
+    .slip {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+  }
+  .print-only { display: none; }
+
+  .slip {
+    border: 2px dashed #94a3b8;
+    border-radius: .85rem;
+    padding: 1.1rem 1.35rem;
+    margin-bottom: 1rem;
+    background: white;
+  }
+  .slip h3 { margin: 0 0 .4rem; font-size: 1.1rem; }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 1rem;
+  }
+
+  /* Drag-over */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 1rem;
+    padding: 2rem;
+    text-align: center;
+    transition: all .15s;
+    cursor: pointer;
+    background: white;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+  }
+
+  /* Subtle anim for the dashboard panel updates */
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+  .pop { animation: pop .28s ease; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- TOP BAR                                                       -->
+<!-- ============================================================ -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-40 no-print">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white grid place-items-center font-bold text-lg">ת</div>
+      <div>
+        <div class="font-bold text-slate-900 leading-tight">כלי לחישוב ציונים</div>
+        <div class="text-xs text-slate-500 leading-tight">מבדק בתנ"ך · כיתות ו' · תשפ"ו</div>
+      </div>
+    </div>
+    <div id="topInfo" class="hidden md:flex items-center gap-2 text-sm text-slate-600"></div>
+    <div class="flex items-center gap-2">
+      <div id="saveIndicator" class="items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border" style="display:none">
+        <span id="saveDots" class="text-green-600">●</span>
+        <span id="saveText">נשמר</span>
+      </div>
+      <button id="linkFileBtn" class="btn btn-ghost text-xs hidden" onclick="linkFile()" title="חיבור לקובץ Excel לשמירה אוטומטית">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        חיבור לקובץ Excel
+      </button>
+      <button class="btn btn-ghost text-xs" onclick="showPrivacyModal()" title="הצהרת פרטיות">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        פרטיות
+      </button>
+      <button id="resetBtn" class="btn btn-ghost text-xs hidden" onclick="confirmReset()" title="התחל מחדש">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+        אפס
+      </button>
+    </div>
+  </div>
+
+  <!-- Tab navigation (visible after setup) -->
+  <nav id="mainTabs" class="hidden border-t border-slate-100 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 py-2 flex gap-1">
+      <button class="nav-pill" data-screen="roster" onclick="goTo('roster')">רשימת כיתה</button>
+      <button class="nav-pill" data-screen="grading" onclick="goTo('grading')">קידוד מבחנים</button>
+      <button class="nav-pill" data-screen="dashboard" onclick="goTo('dashboard')">מיפוי כיתתי</button>
+    </div>
+  </nav>
+</header>
+
+<!-- ============================================================ -->
+<!-- SCREEN 1: SETUP                                              -->
+<!-- ============================================================ -->
+<section id="screen-setup" class="screen active">
+  <div class="max-w-2xl mx-auto px-4 py-12">
+    <div class="card p-8">
+      <div class="text-center mb-6">
+        <div class="inline-block bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-full px-3 py-1 mb-3">פרטיות מובנית · ללא ענן · עיבוד מקומי בלבד</div>
+        <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-2">כלי לחישוב ציונים — מבדק בתנ"ך</h1>
+        <p class="text-slate-600">קידוד מבדקי תנ"ך כיתות ו' והפקת מחוונים אישיים וכיתתיים.</p>
+      </div>
+
+      <div class="mb-6 space-y-2 text-sm leading-relaxed">
+        <div class="flex items-start gap-2 text-slate-700">
+          <span class="mt-0.5" style="color:#059669">🛡️</span>
+          <span><strong>פרטיות:</strong> המידע נשמר אצלכם בלבד — לא בענן, לא בשרת, ולא מועבר לשום גורם חיצוני.</span>
+        </div>
+        <div class="flex items-start gap-2 text-slate-700">
+          <span class="mt-0.5" style="color:#d97706">💾</span>
+          <span><strong>שמירה:</strong> אוטומטית בדפדפן בכל פעולה. <strong>מומלץ</strong> לחבר גם קובץ Excel ב-OneDrive/שולחן העבודה — שיתעדכן אוטומטית בכל שינוי וניתן יהיה לפתוח/להדפיס/לשתף ישירות.</span>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1">שם המורה</label>
+          <input id="setup-teacher" class="input" placeholder="לדוגמה: רחל לוי" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-1">כיתה</label>
+          <input id="setup-class" class="input" placeholder="לדוגמה: ו'2" />
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 mb-2">נוסח המבדק</label>
+          <div class="grid grid-cols-3 gap-2" id="sector-picker">
+            <button type="button" data-sector="m" class="sector-opt p-4 rounded-lg border-2 border-slate-200 hover:border-indigo-500 transition text-center">
+              <div class="font-bold">נוסח ממלכתי</div>
+            </button>
+            <button type="button" data-sector="d" class="sector-opt p-4 rounded-lg border-2 border-slate-200 hover:border-indigo-500 transition text-center">
+              <div class="font-bold">נוסח ממלכתי דתי</div>
+            </button>
+            <button type="button" data-sector="h" class="sector-opt p-4 rounded-lg border-2 border-slate-200 hover:border-indigo-500 transition text-center">
+              <div class="font-bold">נוסח חרדי</div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <button id="setup-start" class="btn btn-primary w-full mt-6 text-base py-3" onclick="startSession()">
+        כניסה לסביבת העבודה
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+
+      <div class="mt-6 pt-6 border-t border-slate-200 text-xs text-slate-500 text-center leading-relaxed">
+        כלי פנימי לשימוש המורה בלבד · ללא הרשמה · ללא גישה חיצונית · ללא שמירה בענן
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SCREEN 2: ROSTER                                             -->
+<!-- ============================================================ -->
+<section id="screen-roster" class="screen">
+  <div class="max-w-5xl mx-auto px-4 py-6">
+
+    <!-- File backup banner (shown when no file linked) -->
+    <div id="fileBackupBanner" class="hidden mb-4 rounded-xl p-4" style="background:linear-gradient(135deg,#ecfdf5,#dbeafe);border:1px solid #86efac">
+      <div class="flex items-start gap-3">
+        <div class="flex-shrink-0 mt-0.5">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M8 12h8M8 8h8M8 16h5"/></svg>
+        </div>
+        <div class="flex-1">
+          <div class="font-bold text-emerald-900 mb-1">שמירה אוטומטית לקובץ Excel — מומלץ!</div>
+          <div class="text-sm text-emerald-800 mb-3 leading-relaxed">
+            חיבור לקובץ Excel ב-OneDrive/שולחן העבודה יאפשר:
+            <ul class="list-disc pr-5 mt-1">
+              <li><strong>שמירה אוטומטית</strong> בכל פעולה — לקובץ Excel מעוצב ומלא</li>
+              <li><strong>פתיחה ישירה</strong> ב-Excel לצפייה/הדפסה/שיתוף עם ההנהלה</li>
+              <li><strong>גיבוי כפול</strong> — גם בדפדפן וגם בקובץ אמיתי במחשב</li>
+            </ul>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button class="btn btn-success" style="padding:.5rem 1rem" onclick="linkFile()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              חיבור לקובץ Excel
+            </button>
+            <button class="btn btn-ghost text-sm" onclick="dismissBackupBanner()">לא תודה, ממשיכים בלי</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File linked confirmation (shown when file is linked) -->
+    <div id="fileLinkedBanner" class="hidden mb-4 rounded-xl p-3" style="background:#ecfdf5;border:1px solid #86efac">
+      <div class="flex items-center gap-3 text-sm">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="flex-1">
+          <strong class="text-emerald-900">קובץ Excel מחובר — שמירה אוטומטית פעילה</strong>
+          <span class="text-emerald-800"> · <strong id="fileLinkedName"></strong> מתעדכן בכל שינוי</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900">רשימת כיתה</h2>
+        <p class="text-sm text-slate-500">ניתן להוסיף תלמידים ידנית או לייבא קובץ. כל הנתונים נשמרים מקומית בלבד.</p>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="document.getElementById('rosterFile').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          ייבוא מקובץ
+        </button>
+        <input id="rosterFile" type="file" accept=".xlsx,.xls,.csv,.docx" class="hidden" onchange="handleRosterFile(event)" />
+        <button class="btn btn-primary" onclick="goTo('grading')" id="goGradingBtn" disabled>
+          המשך לקידוד מבחנים
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick add -->
+    <div class="card p-4 mb-4">
+      <div class="flex flex-col md:flex-row gap-2">
+        <input id="quickAddName" class="input flex-1" placeholder="שם תלמיד/ה להוספה מהירה (Enter לאישור)..." onkeydown="if(event.key==='Enter'){quickAdd()}"/>
+        <button class="btn btn-primary" onclick="quickAdd()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          הוספה
+        </button>
+      </div>
+    </div>
+
+    <div id="rosterEmpty" class="drop-zone"
+         ondrop="dropFile(event)" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-3 text-slate-400">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+      </svg>
+      <div class="font-semibold text-slate-700">גרירת קובץ לכאן או לחיצה לייבוא</div>
+      <div class="text-sm text-slate-500 mt-1">פורמטים נתמכים: Excel (.xlsx), CSV, Word (.docx) — או להוסיף שם ידני למעלה</div>
+    </div>
+
+    <div id="rosterList" class="card divide-y divide-slate-100 hidden">
+      <div class="roster-row bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <div>שם</div>
+        <div>סטטוס</div>
+        <div class="hide-mobile">התאמות</div>
+        <div class="hide-mobile">קידוד</div>
+        <div></div>
+        <div></div>
+      </div>
+      <!-- rows injected here -->
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SCREEN 3: GRADING                                            -->
+<!-- ============================================================ -->
+<section id="screen-grading" class="screen">
+  <div class="max-w-7xl mx-auto px-4 py-4">
+
+    <!-- Student switcher row -->
+    <div class="card p-3 mb-4 flex flex-wrap items-center gap-3">
+      <div class="flex-1 min-w-[200px]">
+        <label class="text-xs text-slate-500 font-semibold">תלמיד/ה נוכחי</label>
+        <select id="studentPicker" class="input mt-1" onchange="onPickStudent(this.value)"></select>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn-secondary" onclick="prevStudent()" title="הקודם">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          הקודם
+        </button>
+        <button class="btn btn-secondary" onclick="nextStudent()" title="הבא">
+          הבא
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-ghost text-sm" onclick="goTo('roster')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+        חזרה לרשימה
+      </button>
+    </div>
+
+    <!-- Top: Questions card (full width, 3 columns inside) -->
+    <div class="card p-5 mb-4">
+      <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div>
+          <h2 id="gradingStudentName" class="text-xl font-bold text-slate-900"></h2>
+          <div id="gradingStudentStatus" class="mt-1 flex items-center gap-2 flex-wrap"></div>
+        </div>
+        <div class="text-xs text-slate-500">
+          לחיצה על כפתור ניקוד לכל שאלה · ניתן לעדכן בכל שלב
+        </div>
+      </div>
+      <div id="partTabs" class="part-tabs"></div>
+      <div id="questionsContainer"></div>
+      <div id="partNavBottom"></div>
+    </div>
+
+    <!-- Bottom: Live mapping panel (full width, horizontal layout) -->
+    <div class="card p-5">
+      <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+        <div>
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">מיפוי אישי</div>
+          <h3 id="liveStudentName" class="font-bold text-slate-900"></h3>
+        </div>
+        <div id="currentPartBanner" style="display:none;align-items:center;gap:.4rem;padding:.4rem .65rem;border-radius:.55rem;font-size:.85rem;border-width:1px;border-style:solid"></div>
+      </div>
+
+      <div class="grid gap-4" style="grid-template-columns: auto 1fr 1fr auto; align-items: start;">
+        <!-- Score ring -->
+        <div class="text-center">
+          <div id="scoreRing" class="score-ring" style="width:120px;height:120px">
+            <div class="score-ring-content">
+              <div class="score-ring-value" id="scoreRaw" style="font-size:1.5rem">0</div>
+              <div class="score-ring-label" id="scoreMax">מתוך 0 נק׳</div>
+            </div>
+          </div>
+          <div class="text-xs font-semibold text-slate-600 mt-2">ציון המבדק</div>
+          <div class="text-xs text-slate-400 mt-0.5" id="completionStatus">לא הוזנו תשובות</div>
+        </div>
+
+        <!-- Skill bars -->
+        <div>
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">חלקי המבדק</h4>
+          <div id="skillBars" class="space-y-2.5"></div>
+        </div>
+
+        <!-- Type cards -->
+        <div>
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">סוג שאלה</h4>
+          <div id="typeBars" class="grid grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- Feedback + save -->
+        <div style="min-width:240px;max-width:280px">
+          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 flex items-center gap-1">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+            הערה אישית
+          </h4>
+          <textarea id="feedbackText" class="input" rows="3"
+                    placeholder="הערה אישית לתלמיד/ה..."
+                    oninput="onFeedbackChange(this.value)"></textarea>
+          <div class="text-xs text-slate-400 mt-1" id="feedbackHint">ניתן להוסיף בכל שלב</div>
+          <button id="saveNextBtn" class="btn btn-success w-full mt-3 py-3" onclick="saveAndNext()">
+            שמירה · תלמיד הבא
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- SCREEN 4: DASHBOARD                                          -->
+<!-- ============================================================ -->
+<section id="screen-dashboard" class="screen">
+  <div class="max-w-7xl mx-auto px-4 py-6">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+      <div>
+        <h2 class="text-xl font-bold text-slate-900">לוח מיפוי כיתתי</h2>
+        <p class="text-sm text-slate-500">תמונת מצב פדגוגית רוחבית. כל הנתונים מחושבים מקומית.</p>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button class="btn btn-secondary" onclick="exportExcel()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          ייצוא Excel
+        </button>
+        <button class="btn btn-secondary" onclick="exportSlipsPdf()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/></svg>
+          פתקי משוב להדפסה
+        </button>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-4 gap-3 mb-4">
+      <div class="card p-4">
+        <div class="text-xs text-slate-500 font-semibold">תלמידים בכיתה</div>
+        <div id="kpiTotal" class="text-2xl font-bold mt-1">0</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-xs text-slate-500 font-semibold">ציון ממוצע</div>
+        <div id="kpiAvg" class="text-2xl font-bold mt-1 text-indigo-600">—</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-xs text-slate-500 font-semibold">טווח ציונים</div>
+        <div id="kpiRange" class="text-2xl font-bold mt-1 text-slate-700">—</div>
+      </div>
+      <div class="card p-4">
+        <div class="text-xs text-slate-500 font-semibold">שאלות עם דגל אדום</div>
+        <div id="kpiFlags" class="text-2xl font-bold mt-1 text-rose-600">0</div>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mb-4">
+      <div class="card p-5">
+        <h3 class="font-bold mb-3">התפלגות ציונים</h3>
+        <div style="position:relative;height:220px">
+          <canvas id="distChart"></canvas>
+          <div id="distEmpty" class="empty" style="display:none;position:absolute;inset:0;padding:2rem 1rem">
+            עוד אין מספיק נתונים להצגה.<br/>
+            <span class="text-xs">התפלגות הציונים תופיע אוטומטית עם תחילת הקידוד.</span>
+          </div>
+        </div>
+      </div>
+      <div class="card p-5">
+        <h3 class="font-bold mb-3">ממוצעים לפי מיומנות</h3>
+        <div style="position:relative;height:220px">
+          <canvas id="skillsChart"></canvas>
+          <div id="skillsEmpty" class="empty" style="display:none;position:absolute;inset:0;padding:2rem 1rem">
+            עוד אין מספיק נתונים להצגה.<br/>
+            <span class="text-xs">הממוצעים לפי מיומנויות יופיעו עם תחילת הקידוד.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-5 mb-4">
+      <h3 class="font-bold mb-3">דגלים אדומים — שאלות שדורשות הוראה חוזרת</h3>
+      <p class="text-xs text-slate-500 mb-3">שאלות שבהן ממוצע הכיתה נמוך מ-50% מהניקוד המרבי</p>
+      <div id="redFlagsList" class="space-y-2"></div>
+    </div>
+
+    <div class="card overflow-x-auto">
+      <h3 class="font-bold p-5 pb-2">טבלת ציונים כיתתית</h3>
+      <div id="classTable" class="overflow-x-auto"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<!-- MODALS / OVERLAYS                                            -->
+<!-- ============================================================ -->
+<div id="modal" class="modal-backdrop">
+  <div class="modal">
+    <h3 id="modalTitle" class="text-lg font-bold mb-3">כותרת</h3>
+    <div id="modalBody" class="text-slate-700 mb-4"></div>
+    <div class="flex justify-start gap-2">
+      <button id="modalConfirm" class="btn btn-primary">אישור</button>
+      <button class="btn btn-secondary" onclick="closeModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<!-- ============================================================ -->
+<!-- PRINT VIEW (hidden from screen, shown only on print)         -->
+<!-- ============================================================ -->
+<div id="printView" class="print-only" style="display:none">
+  <!-- populated dynamically when printing slips -->
+</div>
+
+<script>
+/* ===========================================================
+   TEST SCHEMA — sector-specific, from the parameters PDF
+   =========================================================== */
+const SKILL_DEFS = {
+  knowledge: {
+    id: 'knowledge', name: 'הערכה מבוססת נושאי לימוד', short: 'נושאי לימוד',
+    weight: 40, color: '#4f46e5', light: '#e0e7ff',
+    description: 'בודק שליטה בידע ובקיאות בתכני התנ"ך שנלמדו בכיתות ה\'–ו\', בהתאם לתכנית הלימודים של הזרם החינוכי.'
+  },
+  inquiry: {
+    id: 'inquiry', name: 'הערכה מבוססת עיון', short: 'עיון',
+    weight: 40, color: '#7c3aed', light: '#ede9fe',
+    description: 'בודק יכולת התמודדות עצמאית עם טקסט תנ"כי — קריאה, הבנה, פירוש, השוואה והסקת מסקנות מהכתוב.'
+  },
+  general: {
+    id: 'general', name: 'הערכה מבוססת ידע כללי ופרקי יסוד', short: 'ידע כללי',
+    weight: 20, color: '#0d9488', light: '#ccfbf1',
+    description: 'בודק ידע רחב על דמויות מפתח (אבות, משה, יהושע, השופטים), אירועים מכוננים וסיפורי היסוד של עם ישראל.'
+  }
+};
+
+const TYPE_DEFS = {
+  'open':       { name: 'פתוחה',         family: 'פתוחות', color: '#0ea5e9' },
+  'mc':         { name: 'רב-ברירה',     family: 'סגורות', color: '#10b981' },
+  'word-bank':  { name: 'מחסן מילים',   family: 'סגורות', color: '#f59e0b' },
+  'multi':      { name: 'ריבוי תשובות', family: 'סגורות', color: '#ec4899' },
+  'sequence':   { name: 'סידור תשובות', family: 'סגורות', color: '#8b5cf6' }
+};
+const TYPE_FAMILIES = {
+  'פתוחות': { color: '#0ea5e9', light: '#e0f2fe' },
+  'סגורות': { color: '#059669', light: '#d1fae5' }
+};
+
+// helper for question creation - auto-detects type from the label
+function Q(id, label, options, skill, opts={}) {
+  let type = opts.type;
+  if (!type) {
+    if (label.includes('מחסן מילים'))    type = 'word-bank';
+    else if (label.includes('ריבוי'))     type = 'multi';
+    else if (label.includes('סידור'))     type = 'sequence';
+    else if (label.includes('ר"ב'))       type = 'mc';
+    else                                   type = 'open';
+  }
+  return Object.assign({
+    id, label, options, max: Math.max(...options), skill, type
+  }, opts);
+}
+
+const TEST_SCHEMA = {
+  m: {
+    name: 'נוסח ממלכתי',
+    parts: [
+      { id: 'p1', name: 'חלק א\' — הערכה מבוססת נושאי לימוד', skill: 'knowledge',
+        questions: [
+          Q('m_p1_q1', 'שאלה 1', [0,2,4,6], 'knowledge'),
+          Q('m_p1_q2', 'שאלה 2 (מחסן מילים)', [0,2,4,6,8], 'knowledge'),
+          Q('m_p1_q3', 'שאלה 3 (ר"ב)', [0,6], 'knowledge', {type:'mc'}),
+          Q('m_p1_q4', 'שאלה 4 (ר"ב)', [0,6], 'knowledge', {type:'mc'}),
+          Q('m_p1_q5', 'שאלה 5 (מחסן מילים)', [0,2,4,6,8], 'knowledge'),
+          Q('m_p1_q6', 'שאלה 6 (פתוח)', [0,6], 'knowledge')
+        ]},
+      { id: 'p2', name: 'חלק ב\' — הערכה מבוססת עיון', skill: 'inquiry',
+        questions: [
+          Q('m_p2_q7a','שאלה 7 — סעיף א',[0,1],'inquiry'),
+          Q('m_p2_q7b','שאלה 7 — סעיף ב',[0,1],'inquiry'),
+          Q('m_p2_q7c','שאלה 7 — סעיף ג',[0,1],'inquiry'),
+          Q('m_p2_q7d','שאלה 7 — סעיף ד',[0,1],'inquiry'),
+          Q('m_p2_q7e','שאלה 7 — סעיף ה',[0,1],'inquiry'),
+          Q('m_p2_q8a','שאלה 8 — סעיף א',[0,1],'inquiry'),
+          Q('m_p2_q8b','שאלה 8 — סעיף ב',[0,1,3],'inquiry'),
+          Q('m_p2_q8c','שאלה 8 — סעיף ג',[0,1,3],'inquiry'),
+          Q('m_p2_q9a1','שאלה 9 — סעיף א1',[0,3],'inquiry'),
+          Q('m_p2_q9a2','שאלה 9 — סעיף א2',[0,3],'inquiry'),
+          Q('m_p2_q9b','שאלה 9 — סעיף ב',[0,3],'inquiry'),
+          Q('m_p2_q10','שאלה 10',[0,3],'inquiry'),
+          Q('m_p2_q11','שאלה 11',[0,2,4],'inquiry'),
+          Q('m_p2_q12','שאלה 12',[0,3],'inquiry'),
+          Q('m_p2_q13','שאלה 13 (ר"ב)',[0,3],'inquiry',{type:'mc'}),
+          Q('m_p2_q14','שאלה 14',[0,2],'inquiry'),
+          Q('m_p2_q15','שאלה 15',[0,4],'inquiry')
+        ]},
+      { id: 'p3', name: 'חלק ג\' — הערכה מבוססת ידע כללי', skill: 'general',
+        questions: [
+          Q('m_p3_q16','שאלה 16 — סידור תשובות',[0,2],'general',{type:'mc'}),
+          Q('m_p3_q17','שאלה 17',[0,1,2,3,4],'general'),
+          Q('m_p3_q18','שאלה 18 (ריבוי תשובות)',[0,1,2],'general'),
+          Q('m_p3_q19a','שאלה 19 — סעיף א (ר"ב)',[0,1],'general',{type:'mc'}),
+          Q('m_p3_q19b','שאלה 19 — סעיף ב (ר"ב)',[0,1],'general',{type:'mc'}),
+          Q('m_p3_q19c','שאלה 19 — סעיף ג (ר"ב)',[0,1],'general',{type:'mc'}),
+          Q('m_p3_q20','שאלה 20 (מחסן מילים)',[0,1,2,3],'general'),
+          Q('m_p3_q21a','שאלה 21 — סעיף א (מחסן מילים)',[0,1,2,3],'general'),
+          Q('m_p3_q21b','שאלה 21 — סעיף ב (פתוח)',[0,3],'general')
+        ]}
+    ]
+  },
+  d: {
+    name: 'נוסח ממלכתי דתי',
+    parts: [
+      { id: 'p1', name: 'חלק א\' — הערכה מבוססת נושאי לימוד', skill: 'knowledge',
+        questions: [
+          Q('d_p1_q1a','שאלה 1 — סעיף א',[0,2],'knowledge'),
+          Q('d_p1_q1b','שאלה 1 — סעיף ב',[0,2],'knowledge'),
+          Q('d_p1_q1c','שאלה 1 — סעיף ג',[0,2],'knowledge'),
+          Q('d_p1_q2','שאלה 2 (מחסן מילים)',[0,3,6],'knowledge'),
+          Q('d_p1_q3a','שאלה 3 — סעיף א',[0,3,5],'knowledge'),
+          Q('d_p1_q3b','שאלה 3 — סעיף ב',[0,3],'knowledge'),
+          Q('d_p1_q4a','שאלה 4 — סעיף א',[0,2],'knowledge'),
+          Q('d_p1_q4b','שאלה 4 — סעיף ב',[0,2],'knowledge'),
+          Q('d_p1_q5a','שאלה 5 — סעיף א',[0,4],'knowledge'),
+          Q('d_p1_q5b','שאלה 5 — סעיף ב',[0,4],'knowledge'),
+          Q('d_p1_q6a','שאלה 6 — סעיף א',[0,4],'knowledge'),
+          Q('d_p1_q6b','שאלה 6 — סעיף ב (ריבוי תשובות)',[0,2,4],'knowledge')
+        ]},
+      { id: 'p2', name: 'חלק ב\' — הערכה מבוססת עיון', skill: 'inquiry',
+        questions: [
+          Q('d_p2_q7a','שאלה 7 — סעיף א',[0,1],'inquiry'),
+          Q('d_p2_q7b','שאלה 7 — סעיף ב',[0,1],'inquiry'),
+          Q('d_p2_q7c','שאלה 7 — סעיף ג',[0,1],'inquiry'),
+          Q('d_p2_q7d','שאלה 7 — סעיף ד',[0,1],'inquiry'),
+          Q('d_p2_q7e','שאלה 7 — סעיף ה',[0,1],'inquiry'),
+          Q('d_p2_q8a','שאלה 8 — סעיף א',[0,1],'inquiry'),
+          Q('d_p2_q8b','שאלה 8 — סעיף ב',[0,1,3],'inquiry'),
+          Q('d_p2_q8c','שאלה 8 — סעיף ג',[0,1,3],'inquiry'),
+          Q('d_p2_q9a1','שאלה 9 — סעיף א1',[0,3],'inquiry'),
+          Q('d_p2_q9a2','שאלה 9 — סעיף א2',[0,3],'inquiry'),
+          Q('d_p2_q9b','שאלה 9 — סעיף ב',[0,3],'inquiry'),
+          Q('d_p2_q10','שאלה 10',[0,3],'inquiry'),
+          Q('d_p2_q11','שאלה 11',[0,2,4],'inquiry'),
+          Q('d_p2_q12','שאלה 12',[0,3],'inquiry'),
+          Q('d_p2_q13','שאלה 13 (ר"ב)',[0,3],'inquiry',{type:'mc'}),
+          Q('d_p2_q14','שאלה 14',[0,2],'inquiry'),
+          Q('d_p2_q15','שאלה 15',[0,4],'inquiry')
+        ]},
+      { id: 'p3', name: 'חלק ג\' — הערכה מבוססת ידע כללי', skill: 'general',
+        questions: [
+          Q('d_p3_q16','שאלה 16 — סידור תשובות',[0,2],'general',{type:'mc'}),
+          Q('d_p3_q17','שאלה 17',[0,1,2,3,4],'general'),
+          Q('d_p3_q18','שאלה 18 (ריבוי תשובות)',[0,1,2],'general'),
+          Q('d_p3_q19','שאלה 19 (מחסן מילים)',[0,1,2,3],'general'),
+          Q('d_p3_q20','שאלה 20 (מחסן מילים)',[0,1,2,3],'general'),
+          Q('d_p3_q21a','שאלה 21 — סעיף א (מחסן מילים)',[0,1,2,3],'general'),
+          Q('d_p3_q21b','שאלה 21 — סעיף ב (פתוח)',[0,3],'general')
+        ]}
+    ]
+  },
+  h: {
+    name: 'נוסח חרדי',
+    parts: [
+      { id: 'p1', name: 'חלק א\' — הערכה מבוססת נושאי לימוד', skill: 'knowledge',
+        questions: [
+          Q('h_p1_q1a','שאלה 1 — סעיף א',[0,1],'knowledge'),
+          Q('h_p1_q1b','שאלה 1 — סעיף ב',[0,5],'knowledge'),
+          Q('h_p1_q2a','שאלה 2 — סעיף א',[0,1],'knowledge'),
+          Q('h_p1_q2b','שאלה 2 — סעיף ב',[0,5],'knowledge'),
+          Q('h_p1_q2c','שאלה 2 — סעיף ג',[0,5],'knowledge'),
+          Q('h_p1_q3a','שאלה 3 — סעיף א',[0,1],'knowledge'),
+          Q('h_p1_q3b','שאלה 3 — סעיף ב',[0,4],'knowledge'),
+          Q('h_p1_q4a','שאלה 4 — סעיף א',[0,4],'knowledge'),
+          Q('h_p1_q4b','שאלה 4 — סעיף ב (ר"ב)',[0,3],'knowledge',{type:'mc'}),
+          Q('h_p1_q5a','שאלה 5 — סעיף א',[0,2],'knowledge'),
+          Q('h_p1_q5b','שאלה 5 — סעיף ב',[0,3],'knowledge'),
+          Q('h_p1_q6a','שאלה 6 — סעיף א',[0,3],'knowledge'),
+          Q('h_p1_q6b','שאלה 6 — סעיף ב',[0,3],'knowledge')
+        ]},
+      { id: 'p2', name: 'חלק ב\' — הערכה מבוססת עיון', skill: 'inquiry',
+        questions: [
+          Q('h_p2_q7a','שאלה 7 — סעיף א',[0,1],'inquiry'),
+          Q('h_p2_q7b','שאלה 7 — סעיף ב',[0,1],'inquiry'),
+          Q('h_p2_q7c','שאלה 7 — סעיף ג',[0,1],'inquiry'),
+          Q('h_p2_q7d','שאלה 7 — סעיף ד',[0,1],'inquiry'),
+          Q('h_p2_q7e','שאלה 7 — סעיף ה',[0,1],'inquiry'),
+          Q('h_p2_q8a','שאלה 8 — סעיף א',[0,1],'inquiry'),
+          Q('h_p2_q8b','שאלה 8 — סעיף ב',[0,1,3],'inquiry'),
+          Q('h_p2_q8c','שאלה 8 — סעיף ג',[0,1,3],'inquiry'),
+          Q('h_p2_q9a1','שאלה 9 — סעיף א1',[0,3],'inquiry'),
+          Q('h_p2_q9a2','שאלה 9 — סעיף א2',[0,3],'inquiry'),
+          Q('h_p2_q9b','שאלה 9 — סעיף ב',[0,3],'inquiry'),
+          Q('h_p2_q10','שאלה 10',[0,3],'inquiry'),
+          Q('h_p2_q11','שאלה 11',[0,2,4],'inquiry'),
+          Q('h_p2_q12','שאלה 12',[0,3],'inquiry'),
+          Q('h_p2_q13','שאלה 13 (ר"ב)',[0,3],'inquiry',{type:'mc'}),
+          Q('h_p2_q14','שאלה 14',[0,2],'inquiry'),
+          Q('h_p2_q15','שאלה 15',[0,4],'inquiry')
+        ]},
+      { id: 'p3', name: 'חלק ג\' — הערכה מבוססת ידע כללי', skill: 'general',
+        questions: [
+          Q('h_p3_q16','שאלה 16 — סידור תשובות',[0,2],'general',{type:'mc'}),
+          Q('h_p3_q17','שאלה 17',[0,1,2,3,4],'general'),
+          Q('h_p3_q18','שאלה 18 (ריבוי תשובות)',[0,1,2],'general'),
+          Q('h_p3_q19','שאלה 19 (מחסן מילים)',[0,1,2,3],'general'),
+          Q('h_p3_q20','שאלה 20 (מחסן מילים)',[0,1,2,3],'general'),
+          Q('h_p3_q21a','שאלה 21 — סעיף א (מחסן מילים)',[0,1,2,3],'general'),
+          Q('h_p3_q21b','שאלה 21 — סעיף ב (פתוח)',[0,3],'general')
+        ]}
+    ]
+  }
+};
+
+/* ===========================================================
+   STATE — pure client-side, in-memory
+   =========================================================== */
+const state = {
+  teacher: '',
+  className: '',
+  sector: null,        // 'm'|'d'|'h'
+  students: [],        // [{id, name, status, accommodation, scores:{qId: val}, feedback, completedAt}]
+  currentStudentId: null,
+  charts: { dist: null, skills: null }
+};
+
+const STATUS_OPTIONS = [
+  { id: 'regular',   label: 'רגיל',    chip: 'regular'   },
+  { id: 'inclusion', label: 'משולב',   chip: 'inclusion' },
+  { id: 'immigrant', label: 'עולה',    chip: 'immigrant' },
+  { id: 'accom',     label: 'התאמות',  chip: 'accom'     }
+];
+
+/* ===========================================================
+   DUAL AUTO-SAVE: localStorage + (optional) File System
+   =========================================================== */
+const STORAGE_KEY  = 'tnufa-tanach-mapping-v1';
+const FILE_DB_NAME = 'tnufa-mapping-handles';
+
+function snapshotState() {
+  return {
+    teacher: state.teacher,
+    className: state.className,
+    sector: state.sector,
+    students: state.students,
+    savedAt: new Date().toISOString()
+  };
+}
+
+let _saveTimer = null;
+function autoSave() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(persistState, 250);
+}
+
+function persistState() {
+  if (!state.sector) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshotState()));
+    updateSaveIndicator('local');
+  } catch(e) { console.warn('localStorage save failed', e); }
+  if (state.fileHandle) {
+    saveToFile().catch(e => {
+      console.warn('file save failed', e);
+      updateSaveIndicator('error');
+    });
+  }
+}
+
+async function saveToFile() {
+  if (!state.fileHandle) return;
+  // Build the styled Excel workbook in memory
+  const wb = buildWorkbook();
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const writable = await state.fileHandle.createWritable();
+  await writable.write(new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  await writable.close();
+  updateSaveIndicator('dual');
+}
+
+function updateSaveIndicator(mode) {
+  const ind = document.getElementById('saveIndicator');
+  if (!ind) return;
+  if (!state.sector) { ind.style.display = 'none'; return; }
+  ind.style.display = 'inline-flex';
+  const dots = document.getElementById('saveDots');
+  const text = document.getElementById('saveText');
+  const t = new Date();
+  const time = t.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit' });
+  if (mode === 'dual') {
+    ind.style.background = '#d1fae5';
+    ind.style.borderColor = '#86efac';
+    dots.textContent = '●●';
+    dots.style.color = '#059669';
+    text.textContent = `נשמר במחשב + בקובץ · ${time}`;
+    text.style.color = '#065f46';
+  } else if (mode === 'local') {
+    ind.style.background = '#fef9c3';
+    ind.style.borderColor = '#fde68a';
+    dots.textContent = '●';
+    dots.style.color = '#ca8a04';
+    text.textContent = state.fileHandle ? `נשמר במחשב · קובץ מתעדכן... · ${time}` : `נשמר במחשב · ${time}`;
+    text.style.color = '#854d0e';
+  } else if (mode === 'error') {
+    ind.style.background = '#fee2e2';
+    ind.style.borderColor = '#fca5a5';
+    dots.textContent = '⚠';
+    dots.style.color = '#dc2626';
+    text.textContent = 'שגיאה בשמירה לקובץ';
+    text.style.color = '#991b1b';
+  }
+}
+
+/* ----- IndexedDB to persist file handle across sessions ----- */
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FILE_DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('h');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('h','readonly');
+    const r = tx.objectStore('h').get(key);
+    r.onsuccess = () => { db.close(); resolve(r.result); };
+    r.onerror   = () => { db.close(); reject(r.error); };
+  });
+}
+async function idbSet(key, val) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('h','readwrite');
+    tx.objectStore('h').put(val, key);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror    = () => { db.close(); reject(tx.error); };
+  });
+}
+async function idbDel(key) {
+  const db = await idbOpen();
+  return new Promise((resolve) => {
+    const tx = db.transaction('h','readwrite');
+    tx.objectStore('h').delete(key);
+    tx.oncomplete = () => { db.close(); resolve(); };
+  });
+}
+
+/* ----- File linking via File System Access API ----- */
+async function linkFile() {
+  if (!('showSaveFilePicker' in window)) {
+    showModal('דפדפן לא נתמך',
+      `<p>שמירה אוטומטית לקובץ דורשת דפדפן <strong>Chrome</strong> או <strong>Edge</strong>.</p>
+       <p>השמירה האוטומטית במחשב ממשיכה לעבוד כרגיל. אפשר לייצא Excel ידני דרך כפתור "ייצוא Excel" בלוח המיפוי הכיתתי.</p>`,
+      null, 'הבנתי');
+    return;
+  }
+  if (!state.className) {
+    toast('יש למלא שם כיתה תחילה', 'danger');
+    return;
+  }
+  try {
+    const safeName = state.className.replace(/[\\/:*?"<>|]/g,'_');
+    const handle = await window.showSaveFilePicker({
+      suggestedName: `מיפוי_תנך_${safeName}.xlsx`,
+      types: [{
+        description: 'קובץ Excel',
+        accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
+      }]
+    });
+    state.fileHandle = handle;
+    try { await idbSet('mainFile', handle); } catch(e){}
+    await saveToFile();
+    refreshLinkFileButton();
+    toast('הקובץ מחובר — שמירה אוטומטית ל-Excel מופעלת ✓', 'success');
+  } catch(e) {
+    if (e.name !== 'AbortError') {
+      console.warn(e);
+      toast('לא הצליח לחבר קובץ', 'danger');
+    }
+  }
+}
+
+async function tryRestoreFileHandle() {
+  if (!('showSaveFilePicker' in window)) return;
+  try {
+    const handle = await idbGet('mainFile');
+    if (!handle) return;
+    const perm = await handle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      state.fileHandle = handle;
+      refreshLinkFileButton();
+    } else {
+      // need user gesture to re-request — show banner
+      state.pendingFileHandle = handle;
+      showFileReconnectBanner(handle.name);
+    }
+  } catch(e) { console.warn('restore handle failed', e); }
+}
+
+function refreshLinkFileButton() {
+  const btn = document.getElementById('linkFileBtn');
+  if (btn) {
+    if (!state.sector) { btn.classList.add('hidden'); }
+    else {
+      btn.classList.remove('hidden');
+      if (state.fileHandle) {
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M9 12l2 2 4-4"/></svg> מחובר: ${escapeHtml(state.fileHandle.name)}`;
+        btn.title = 'הקובץ מחובר ומתעדכן בכל שינוי';
+      } else {
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> חיבור לקובץ`;
+        btn.title = 'חיבור לקובץ במחשב לשמירה אוטומטית כפולה';
+      }
+    }
+  }
+  refreshBackupBanners();
+}
+
+function refreshBackupBanners() {
+  const offer = document.getElementById('fileBackupBanner');
+  const linked = document.getElementById('fileLinkedBanner');
+  if (!offer || !linked) return;
+  if (!state.sector) { offer.classList.add('hidden'); linked.classList.add('hidden'); return; }
+  if (state.fileHandle) {
+    offer.classList.add('hidden');
+    linked.classList.remove('hidden');
+    const n = document.getElementById('fileLinkedName');
+    if (n) n.textContent = state.fileHandle.name;
+  } else if (state.backupBannerDismissed) {
+    offer.classList.add('hidden');
+    linked.classList.add('hidden');
+  } else {
+    offer.classList.remove('hidden');
+    linked.classList.add('hidden');
+  }
+}
+
+function dismissBackupBanner() {
+  state.backupBannerDismissed = true;
+  refreshBackupBanners();
+}
+
+async function reconnectPendingHandle() {
+  if (!state.pendingFileHandle) return;
+  try {
+    const perm = await state.pendingFileHandle.requestPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      state.fileHandle = state.pendingFileHandle;
+      state.pendingFileHandle = null;
+      hideFileReconnectBanner();
+      await saveToFile();
+      refreshLinkFileButton();
+      toast('הקובץ מחובר מחדש ✓', 'success');
+    }
+  } catch(e) { console.warn(e); }
+}
+
+function showFileReconnectBanner(name) {
+  let banner = document.getElementById('reconnectBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'reconnectBanner';
+    banner.style.cssText = 'position:fixed;bottom:1rem;right:1rem;z-index:9998;background:#fef3c7;border:1px solid #fde68a;border-radius:.75rem;padding:.75rem 1rem;box-shadow:0 8px 20px rgba(0,0,0,.1);max-width:340px';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `
+    <div class="text-sm">
+      <div class="font-semibold text-amber-900 mb-1">קובץ הגיבוי הקודם נמצא</div>
+      <div class="text-amber-800 mb-2">"${escapeHtml(name)}" — להמשיך לכתוב אליו?</div>
+      <div class="flex gap-2">
+        <button class="btn btn-primary" style="padding:.35rem .75rem;font-size:.85rem" onclick="reconnectPendingHandle()">אישור</button>
+        <button class="btn btn-ghost" style="padding:.35rem .75rem;font-size:.85rem" onclick="dismissFileReconnect()">לא, תודה</button>
+      </div>
+    </div>`;
+}
+function hideFileReconnectBanner() {
+  const b = document.getElementById('reconnectBanner');
+  if (b) b.remove();
+}
+function dismissFileReconnect() {
+  state.pendingFileHandle = null;
+  idbDel('mainFile').catch(()=>{});
+  hideFileReconnectBanner();
+}
+
+/* ===========================================================
+   UTILITIES
+   =========================================================== */
+function uid() { return Math.random().toString(36).slice(2,10); }
+
+function toast(msg, kind='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>{ t.className = 'toast'; }, 2400);
+}
+
+function showModal(title, body, onConfirm, confirmLabel='אישור') {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = body;
+  const c = document.getElementById('modalConfirm');
+  c.textContent = confirmLabel;
+  c.onclick = () => { closeModal(); if(onConfirm) onConfirm(); };
+  // restore footer buttons for regular modals
+  const footer = document.querySelector('#modal .modal > .flex');
+  if (footer) footer.style.display = 'flex';
+  const closer = document.getElementById('pmCloseBtn');
+  if (closer) closer.style.display = 'none';
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+  const footer = document.querySelector('#modal .modal > .flex');
+  if (footer) footer.style.display = 'flex';
+  const closer = document.getElementById('pmCloseBtn');
+  if (closer) closer.style.display = 'none';
+}
+
+function showPrivacyModal() {
+  showModal('הצהרת פרטיות וסודיות',
+    `<div class="space-y-2 text-sm">
+       <p>הכלי הנו פנימי, אוטונומי ומשמש את המורה בלבד.</p>
+       <p>הארכיטקטורה מבוססת על <strong>100% עיבוד מקומי</strong> בדפדפן (Client-Side טהור):</p>
+       <ul class="list-disc pr-5 space-y-1">
+         <li>הנתונים אינם נשמרים בענן ואינם נשלחים לשרתים חיצוניים.</li>
+         <li>הנתונים אינם מועברים לשום גורם (הנהלה, משרד החינוך, מפתחים).</li>
+         <li>עם סגירת/רענון הדפדפן — הנתונים נמחקים לחלוטין.</li>
+         <li>באחריות המורה לשמור את הדו"חות המופקים (PDF/Excel) במחשב האישי שלו.</li>
+       </ul>
+     </div>`,
+    null, 'הבנתי');
+}
+
+function confirmReset() {
+  showModal('איפוס מערכת',
+    `<p>פעולה זו תמחק את כל הנתונים מהמערכת — כולל את הגיבוי האוטומטי במחשב.</p>
+     ${state.fileHandle ? `<p class="mt-2 p-2 rounded bg-amber-50 text-amber-800 text-sm">⚠️ הקובץ <strong>${escapeHtml(state.fileHandle.name)}</strong> ישאר במחשב אך לא ימחק.</p>` : ''}
+     <p class="mt-2">האם להמשיך?</p>`,
+    () => {
+      try { localStorage.removeItem(STORAGE_KEY); } catch(e){}
+      idbDel('mainFile').catch(()=>{});
+      window.location.reload();
+    }, 'אפס הכל');
+}
+
+/* ===========================================================
+   NAVIGATION
+   =========================================================== */
+function goTo(screen) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+
+  document.querySelectorAll('.nav-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.screen === screen);
+  });
+
+  if (screen === 'grading') {
+    if (!state.currentStudentId && state.students.length) {
+      state.currentStudentId = state.students[0].id;
+    }
+    renderGrading();
+  } else if (screen === 'dashboard') {
+    renderDashboard();
+  } else if (screen === 'roster') {
+    renderRoster();
+  }
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+/* ===========================================================
+   SETUP SCREEN
+   =========================================================== */
+document.querySelectorAll('.sector-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sector-opt').forEach(b => {
+      b.classList.remove('border-indigo-600','bg-indigo-50');
+      b.style.borderColor='';
+    });
+    btn.classList.add('border-indigo-600','bg-indigo-50');
+    btn.style.borderColor='#4f46e5';
+    state.sector = btn.dataset.sector;
+  });
+});
+
+function startSession() {
+  const teacher = document.getElementById('setup-teacher').value.trim();
+  const cls     = document.getElementById('setup-class').value.trim();
+  if (!teacher) { toast('יש למלא שם מורה', 'danger'); return; }
+  if (!cls)     { toast('יש למלא שם כיתה', 'danger'); return; }
+  if (!state.sector) { toast('יש לבחור נוסח מבדק', 'danger'); return; }
+
+  state.teacher = teacher;
+  state.className = cls;
+
+  updateTopBarAfterSession();
+  goTo('roster');
+  autoSave();
+}
+
+function updateTopBarAfterSession() {
+  document.getElementById('topInfo').classList.remove('hidden');
+  document.getElementById('topInfo').innerHTML =
+    `<span class="font-semibold">${escapeHtml(state.teacher)}</span>
+     <span class="text-slate-300">·</span>
+     <span>${escapeHtml(state.className)}</span>
+     <span class="text-slate-300">·</span>
+     <span class="chip regular">${TEST_SCHEMA[state.sector].name}</span>`;
+  document.getElementById('mainTabs').classList.remove('hidden');
+  document.getElementById('resetBtn').classList.remove('hidden');
+  refreshLinkFileButton();
+  updateSaveIndicator('local');
+}
+
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+/* ===========================================================
+   ROSTER MANAGEMENT
+   =========================================================== */
+function quickAdd() {
+  const input = document.getElementById('quickAddName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (state.students.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+    toast('שם זה כבר קיים ברשימה', 'danger'); return;
+  }
+  addStudent(name);
+  input.value = '';
+  input.focus();
+}
+
+function addStudent(name) {
+  state.students.push({
+    id: uid(),
+    name: name,
+    status: 'regular',
+    accommodation: '',
+    scores: {},
+    feedback: '',
+    completedAt: null
+  });
+  renderRoster();
+  autoSave();
+}
+
+function removeStudent(id) {
+  showModal('הסרת תלמיד',
+    '<p>האם להסיר את התלמיד/ה מהרשימה? כל הציונים שלו יימחקו.</p>',
+    () => {
+      state.students = state.students.filter(s => s.id !== id);
+      if (state.currentStudentId === id) state.currentStudentId = null;
+      renderRoster();
+      toast('הוסר מהרשימה');
+      autoSave();
+    }, 'הסר');
+}
+
+function setStudentStatus(id, status) {
+  const s = state.students.find(x => x.id === id);
+  if (!s) return;
+  s.status = status;
+  renderRoster();
+  autoSave();
+}
+function setAccommodation(id, val) {
+  const s = state.students.find(x => x.id === id);
+  if (s) s.accommodation = val;
+  autoSave();
+}
+function renameStudent(id, name) {
+  const s = state.students.find(x => x.id === id);
+  if (s) s.name = name.trim();
+  autoSave();
+}
+
+function renderRoster() {
+  const empty = document.getElementById('rosterEmpty');
+  const list  = document.getElementById('rosterList');
+  const goBtn = document.getElementById('goGradingBtn');
+
+  if (!state.students.length) {
+    empty.style.display = 'block';
+    list.classList.add('hidden');
+    goBtn.disabled = true;
+    return;
+  }
+  empty.style.display = 'none';
+  list.classList.remove('hidden');
+  goBtn.disabled = false;
+
+  // remove existing data rows
+  list.querySelectorAll('.roster-row.data-row').forEach(el=>el.remove());
+
+  state.students.forEach(s => {
+    const row = document.createElement('div');
+    const totals = computeTotals(s);
+    const isDone = totals.answered === totals.totalQuestions;
+    const isPartial = totals.answered > 0 && !isDone;
+    row.className = 'roster-row data-row' + (isDone ? ' complete' : '');
+    row.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="pill-status ${isDone?'done':(isPartial?'partial':'')}"></span>
+        <input class="input" style="padding:.35rem .6rem;font-weight:600"
+               value="${escapeHtml(s.name)}"
+               onchange="renameStudent('${s.id}', this.value)" />
+      </div>
+      <div>
+        <select class="input" style="padding:.35rem .6rem" onchange="setStudentStatus('${s.id}', this.value)">
+          ${STATUS_OPTIONS.map(o => `<option value="${o.id}" ${s.status===o.id?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      <div class="hide-mobile">
+        <input class="input" style="padding:.35rem .6rem"
+               placeholder="${s.status==='regular' ? '—' : 'פרטי התאמה (לדוגמה: הקראה)'}"
+               value="${escapeHtml(s.accommodation||'')}"
+               ${s.status==='regular'?'disabled':''}
+               onchange="setAccommodation('${s.id}', this.value)" />
+      </div>
+      <div class="hide-mobile text-sm text-slate-600">
+        ${totals.answered === 0
+          ? '<span class="text-slate-400">לא הוזן</span>'
+          : `${totals.answered}/${totals.totalQuestions} שאלות · <strong>${totals.percent}%</strong>`}
+      </div>
+      <div class="flex gap-1">
+        <button class="btn btn-secondary" style="padding:.35rem .75rem;font-size:.85rem"
+                onclick="state.currentStudentId='${s.id}';goTo('grading')">
+          קודד
+        </button>
+        ${totals.answered > 0 ? `
+        <button class="btn btn-ghost" style="padding:.35rem .65rem;font-size:.85rem"
+                onclick="showPersonalMapping('${s.id}')" title="מיפוי אישי">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21H3M5 21V10l7-7 7 7v11M9 21v-6h6v6"/></svg>
+        </button>` : ''}
+      </div>
+      <div>
+        <button class="btn btn-danger-ghost" style="padding:.35rem .65rem"
+                onclick="removeStudent('${s.id}')" title="הסר">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+/* ----- file import ----- */
+function dropFile(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragover');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    parseRosterFile(e.dataTransfer.files[0]);
+  }
+}
+function handleRosterFile(e) {
+  if (e.target.files && e.target.files[0]) parseRosterFile(e.target.files[0]);
+}
+
+function parseRosterFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'docx') {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      mammoth.extractRawText({ arrayBuffer: ev.target.result })
+        .then(res => importNamesFromText(res.value))
+        .catch(err => { console.error(err); toast('שגיאה בקריאת קובץ Word', 'danger'); });
+    };
+    reader.readAsArrayBuffer(file);
+  } else if (ext === 'csv' || ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = new Uint8Array(ev.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const names = [];
+        rows.forEach(row => {
+          row.forEach(cell => {
+            const v = String(cell||'').trim();
+            // skip likely header rows
+            if (v && !/^(שם|name|תלמיד|מספר|#)$/i.test(v) && v.length < 60) {
+              names.push(v);
+            }
+          });
+        });
+        ingestNames(names);
+      } catch(err) {
+        console.error(err); toast('שגיאה בקריאת הקובץ', 'danger');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    toast('פורמט לא נתמך. ניתן להשתמש ב-Excel/CSV/Word', 'danger');
+  }
+}
+
+function importNamesFromText(text) {
+  const lines = text.split(/[\r\n,;]+/)
+    .map(l => l.trim())
+    .filter(l => l && l.length < 60 && !/^(שם|name|תלמיד|מספר|#)$/i.test(l));
+  ingestNames(lines);
+}
+
+function ingestNames(names) {
+  let added = 0;
+  names.forEach(name => {
+    if (!name) return;
+    if (state.students.some(s => s.name.toLowerCase() === name.toLowerCase())) return;
+    state.students.push({
+      id: uid(), name, status:'regular', accommodation:'', scores:{}, feedback:'', completedAt:null
+    });
+    added++;
+  });
+  renderRoster();
+  toast(added ? `נוספו ${added} תלמידים` : 'לא נמצאו שמות חדשים', added?'success':'');
+}
+
+/* ===========================================================
+   GRADING — split-screen
+   =========================================================== */
+function getCurrentStudent() {
+  return state.students.find(s => s.id === state.currentStudentId);
+}
+
+function renderGrading() {
+  // Populate student picker
+  const picker = document.getElementById('studentPicker');
+  picker.innerHTML = state.students.map(s => {
+    const t = computeTotals(s);
+    const mark = t.answered === t.totalQuestions ? ' ✓' : (t.answered ? ' …' : '');
+    return `<option value="${s.id}" ${s.id===state.currentStudentId?'selected':''}>${escapeHtml(s.name)}${mark}</option>`;
+  }).join('');
+
+  const student = getCurrentStudent();
+  if (!student) {
+    document.getElementById('questionsContainer').innerHTML = '<div class="empty">אין תלמיד נבחר</div>';
+    return;
+  }
+
+  // header
+  document.getElementById('gradingStudentName').textContent = student.name;
+  const statusEl = document.getElementById('gradingStudentStatus');
+  const stat = STATUS_OPTIONS.find(o => o.id === student.status);
+  statusEl.innerHTML = `
+    <span class="chip ${stat.chip}">${stat.label}</span>
+    ${student.accommodation ? `<span class="text-sm text-slate-500">· ${escapeHtml(student.accommodation)}</span>` : ''}
+    <span class="text-sm text-slate-400">· ${TEST_SCHEMA[state.sector].name}</span>
+  `;
+
+  const schema = TEST_SCHEMA[state.sector];
+  document.getElementById('partTabs').innerHTML = '';
+  document.getElementById('partNavBottom').innerHTML = '';
+
+  let html = '';
+  schema.parts.forEach(part => {
+    const def = SKILL_DEFS[part.skill];
+    const partTotal = part.questions.reduce((a,q)=>a + q.max, 0);
+    const partAnswered = part.questions.reduce((a,q)=>a + (student.scores[q.id]!==undefined ? student.scores[q.id] : 0), 0);
+    const partFilled = part.questions.filter(q => student.scores[q.id] !== undefined).length;
+    const progPct = part.questions.length ? Math.round(partFilled/part.questions.length*100) : 0;
+
+    html += `<div class="part-section">
+      <div class="part-header" style="background:linear-gradient(135deg, ${def.color}, ${def.color}dd)">
+        <div class="flex-1">
+          <div class="flex items-center justify-between gap-2 flex-wrap">
+            <span>${part.name}</span>
+            <span class="badge">${partFilled}/${part.questions.length} · ${partAnswered}/${partTotal} נק׳</span>
+          </div>
+          <div class="part-prog"><div class="part-prog-fill" style="width:${progPct}%"></div></div>
+        </div>
+      </div>
+      <div class="part-questions">`;
+
+    const groups = groupQuestions(part.questions);
+    groups.forEach(group => {
+      const allAnswered = group.items.every(it => student.scores[it.q.id] !== undefined);
+      html += `<div class="q-box ${allAnswered ? 'answered' : ''}" style="border-right-color:${def.color}">
+        <div>
+          <div class="q-box-title">${group.header}</div>
+          ${group.typeName ? `<div class="q-box-type" style="color:${def.color}">${group.typeName}</div>` : ''}
+        </div>`;
+      group.items.forEach(it => {
+        const sel = student.scores[it.q.id];
+        const answered = sel !== undefined;
+        const btnsHtml = `
+          ${it.q.options.map(opt => `
+            <button class="score-btn ${opt===0?'zero':''} ${sel===opt?'selected':''}"
+                    onclick="setScore('${it.q.id}', ${opt})">${opt}</button>
+          `).join('')}
+          ${answered ? `<button class="clear-btn" onclick="setScore('${it.q.id}', undefined)">✕</button>` : ''}
+        `;
+        if (it.letter) {
+          html += `<div class="q-sub" id="qc_${it.q.id}">
+            <span class="q-sub-letter">${it.letter}.</span>
+            <div class="q-buttons">${btnsHtml}</div>
+          </div>`;
+        } else {
+          html += `<div class="q-buttons" id="qc_${it.q.id}">${btnsHtml}</div>`;
+        }
+      });
+      html += `</div>`;
+    });
+
+    html += `</div></div>`; // close part-questions and part-section
+  });
+
+  document.getElementById('questionsContainer').innerHTML = html;
+
+  updateLiveDashboard();
+}
+
+/* Group questions by parent number (so sub-questions like 7א/7ב/7ג go into one box) */
+function groupQuestions(questions) {
+  const groups = [];
+  let last = null;
+  questions.forEach(q => {
+    const parentMatch = q.label.match(/שאלה\s+(\S+?)(?:\s|$|—)/);
+    const parentNum = parentMatch ? parentMatch[1] : q.id;
+    const subMatch = q.label.match(/—\s*סעיף\s+(\S+?)(?:\s|$|\()/);
+    const typeName = TYPE_DEFS[q.type]?.name || '';
+
+    if (subMatch) {
+      const letter = subMatch[1];
+      if (!last || last.parent !== parentNum || !last.hasSubs) {
+        last = {
+          parent: parentNum, header: `שאלה ${parentNum}`,
+          typeName, items: [], hasSubs: true
+        };
+        groups.push(last);
+      }
+      last.items.push({ letter, q });
+    } else {
+      last = {
+        parent: parentNum, header: `שאלה ${parentNum}`,
+        typeName, items: [{ letter: null, q }], hasSubs: false
+      };
+      groups.push(last);
+    }
+  });
+  return groups;
+}
+
+function switchPart(idx) {
+  const schema = TEST_SCHEMA[state.sector];
+  if (idx < 0 || idx >= schema.parts.length) return;
+  state.currentPartIdx = idx;
+  renderGrading();
+  scrollGradingToTop();
+}
+
+let _scrollHandler = null;
+function setupPartScrollObserver() {
+  const container = document.getElementById('questionsContainer');
+  if (!container) return;
+
+  function detect() {
+    const cards = container.querySelectorAll('.question-card');
+    if (!cards.length) return;
+    const containerTop = container.getBoundingClientRect().top + 80; // below sticky header
+    let currentPart = cards[0].dataset.part;
+    for (const c of cards) {
+      const r = c.getBoundingClientRect();
+      if (r.top <= containerTop) currentPart = c.dataset.part;
+      else break;
+    }
+    highlightCurrentPart(currentPart);
+  }
+  if (_scrollHandler) container.removeEventListener('scroll', _scrollHandler);
+  _scrollHandler = () => requestAnimationFrame(detect);
+  container.addEventListener('scroll', _scrollHandler, { passive: true });
+  detect();
+}
+
+function renderTypeCard(f) {
+  const txt = f.percent >= 75 ? '#059669' : f.percent >= 50 ? '#d97706' : '#dc2626';
+  const empty = !f.filled;
+  return `
+    <div class="type-card" style="background:${f.light};border:1px solid ${f.color}33">
+      <div class="text-xs font-semibold text-slate-600 mb-1">שאלות ${f.name}</div>
+      <div class="text-2xl font-extrabold leading-none" style="color:${empty ? '#94a3b8' : txt}">${empty ? '—' : f.percent + '%'}</div>
+      <div class="text-[11px] text-slate-500 mt-1" style="font-variant-numeric:tabular-nums">
+        (${f.raw} / ${f.max} נק׳ · ${f.filled}/${f.total} שאלות)
+      </div>
+      <div class="mt-1.5 type-card-track" style="background:white">
+        <div class="type-card-fill" style="width:${f.percent}%;background:${f.color}"></div>
+      </div>
+    </div>`;
+}
+
+function renderCompactBar({ label, percent, color, light, raw, max, partId }) {
+  const txt = percent >= 75 ? 'text-emerald-600' : percent >= 50 ? 'text-amber-600' : 'text-rose-600';
+  const pid = partId ? ` data-part-id="${partId}"` : '';
+  return `
+    <div class="compact-bar"${pid}>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="cb-dot" style="background:${color}"></span>
+        <span class="text-sm font-medium text-slate-700 flex-1 truncate">${label}</span>
+        <span class="text-sm font-bold ${txt}" style="font-variant-numeric:tabular-nums;min-width:42px;text-align:left">${percent}%</span>
+      </div>
+      <div class="cb-track" style="background:${light}">
+        <div class="cb-fill" style="width:${percent}%;background:${color}"></div>
+      </div>
+      <div class="text-[11px] text-slate-400 mt-1 text-left" style="font-variant-numeric:tabular-nums">(${raw} / ${max} נק׳)</div>
+    </div>`;
+}
+
+function highlightCurrentPart(partId) {
+  _currentPartId = partId;
+  const schema = TEST_SCHEMA[state.sector];
+  const part = schema.parts.find(p => p.id === partId);
+  const def = part ? SKILL_DEFS[part.skill] : null;
+  document.querySelectorAll('#skillBars .compact-bar').forEach(el => {
+    el.classList.toggle('current-part', el.dataset.partId === partId);
+  });
+  const banner = document.getElementById('currentPartBanner');
+  if (banner && part && def) {
+    banner.style.background = def.light;
+    banner.style.borderColor = def.color + '55';
+    banner.style.color = def.color;
+    banner.innerHTML = `<span style="font-size:.7rem;opacity:.7">מקלידים כעת:</span> <span style="font-weight:700">${escapeHtml(def.short)}</span>`;
+    banner.style.display = 'flex';
+  }
+}
+
+function setScore(qId, val) {
+  const student = getCurrentStudent();
+  if (!student) return;
+  if (val === undefined) {
+    delete student.scores[qId];
+  } else {
+    student.scores[qId] = val;
+  }
+  autoSave();
+  // re-render just the question card visuals
+  const schema = TEST_SCHEMA[state.sector];
+  let q = null;
+  schema.parts.forEach(p => p.questions.forEach(qq => { if (qq.id === qId) q = qq; }));
+  if (q) {
+    const card = document.getElementById('qc_' + qId);
+    const sel = student.scores[qId];
+    card.classList.toggle('answered', sel !== undefined);
+    card.querySelectorAll('.score-btn').forEach(b => b.classList.remove('selected'));
+    if (sel !== undefined) {
+      card.querySelectorAll('.score-btn').forEach(b => {
+        if (b.textContent.trim() === String(sel)) b.classList.add('selected');
+      });
+    }
+    // re-render to refresh "נקה" button + part counters
+    // simpler: full re-render
+    renderGrading();
+  }
+
+  // auto-scroll to next unanswered question if user clicked a real score
+  if (val !== undefined) {
+    setTimeout(() => focusNextUnanswered(qId), 80);
+  }
+}
+
+function focusNextUnanswered(currentQid) {
+  const schema = TEST_SCHEMA[state.sector];
+  const allQs = schema.parts.flatMap(p => p.questions);
+  const idx = allQs.findIndex(q => q.id === currentQid);
+  const student = getCurrentStudent();
+  if (!student || idx === -1) return;
+  for (let i = idx+1; i < allQs.length; i++) {
+    if (student.scores[allQs[i].id] === undefined) {
+      const el = document.getElementById('qc_' + allQs[i].id);
+      if (el) {
+        document.querySelectorAll('.question-card.focused').forEach(c=>c.classList.remove('focused'));
+        el.classList.add('focused');
+        el.scrollIntoView({ behavior:'smooth', block:'center' });
+      }
+      return;
+    }
+  }
+}
+
+function computeTotals(student) {
+  const schema = TEST_SCHEMA[state.sector];
+  const allQs = schema.parts.flatMap(p => p.questions);
+  const totalMax = allQs.reduce((a,q) => a + q.max, 0);
+  let raw = 0, answered = 0;
+  allQs.forEach(q => {
+    if (student.scores[q.id] !== undefined) {
+      raw += student.scores[q.id];
+      answered++;
+    }
+  });
+  // weighted % per pedagogical framework (40/40/20)
+  let weighted = 0;
+  schema.parts.forEach(p => {
+    const partMax = p.questions.reduce((a,q)=>a+q.max,0) || 1;
+    const partRaw = p.questions.reduce((a,q)=>a + (student.scores[q.id]||0), 0);
+    weighted += (partRaw / partMax) * SKILL_DEFS[p.skill].weight;
+  });
+  return {
+    raw, totalMax,
+    percent: totalMax ? Math.round((raw/totalMax)*100) : 0,
+    weighted: Math.round(weighted),
+    answered, totalQuestions: allQs.length
+  };
+}
+
+function computeSkillBreakdown(student) {
+  const schema = TEST_SCHEMA[state.sector];
+  const out = {};
+  schema.parts.forEach(p => {
+    const def = SKILL_DEFS[p.skill];
+    const partMax = p.questions.reduce((a,q)=>a+q.max,0);
+    const partRaw = p.questions.reduce((a,q)=>a + (student.scores[q.id]||0), 0);
+    const filled = p.questions.filter(q => student.scores[q.id] !== undefined).length;
+    out[p.skill] = {
+      raw: partRaw,
+      max: partMax,
+      percent: partMax ? Math.round((partRaw/partMax)*100) : 0,
+      filled, total: p.questions.length,
+      name: def.name, short: def.short, color: def.color, light: def.light
+    };
+  });
+  return out;
+}
+
+function computeTypeBreakdown(student) {
+  const schema = TEST_SCHEMA[state.sector];
+  const allQs = schema.parts.flatMap(p => p.questions);
+  // by family (פתוחות/סגורות)
+  const families = {};
+  const types = {};
+  allQs.forEach(q => {
+    const def = TYPE_DEFS[q.type] || TYPE_DEFS['open'];
+    const fam = def.family;
+    if (!families[fam]) families[fam] = { raw:0, max:0, filled:0, total:0, name:fam,
+      color: TYPE_FAMILIES[fam].color, light: TYPE_FAMILIES[fam].light };
+    families[fam].max += q.max;
+    families[fam].total += 1;
+    if (student.scores[q.id] !== undefined) {
+      families[fam].raw += student.scores[q.id];
+      families[fam].filled += 1;
+    }
+    if (!types[q.type]) types[q.type] = { raw:0, max:0, filled:0, total:0,
+      name: def.name, color: def.color };
+    types[q.type].max += q.max;
+    types[q.type].total += 1;
+    if (student.scores[q.id] !== undefined) {
+      types[q.type].raw += student.scores[q.id];
+      types[q.type].filled += 1;
+    }
+  });
+  // percentages
+  Object.values(families).forEach(f => { f.percent = f.max ? Math.round(f.raw/f.max*100) : 0; });
+  Object.values(types).forEach(t    => { t.percent = t.max ? Math.round(t.raw/t.max*100) : 0; });
+  return { families, types };
+}
+
+function updateLiveDashboard() {
+  const student = getCurrentStudent();
+  if (!student) return;
+  const totals = computeTotals(student);
+  const breakdown = computeSkillBreakdown(student);
+  const typeBd = computeTypeBreakdown(student);
+
+  document.getElementById('liveStudentName').textContent = student.name;
+
+  // score ring — show raw points, not percent
+  const ring = document.getElementById('scoreRing');
+  const pct = totals.percent;
+  ring.style.background = `conic-gradient(var(--primary) ${pct}%, #f1f5f9 ${pct}%)`;
+  document.getElementById('scoreRaw').textContent = totals.raw;
+  document.getElementById('scoreMax').textContent = `מתוך ${totals.totalMax} נק׳`;
+  ring.classList.remove('pop'); void ring.offsetWidth; ring.classList.add('pop');
+
+  document.getElementById('completionStatus').textContent =
+    totals.answered === 0 ? 'לא הוזנו תשובות עדיין' :
+    totals.answered === totals.totalQuestions ? '✓ הקידוד הושלם — מוכן לשמירה' :
+    `${totals.answered} מתוך ${totals.totalQuestions} שאלות הוזנו`;
+
+  // skill bars - compact single-row design
+  const schema = TEST_SCHEMA[state.sector];
+  const barsEl = document.getElementById('skillBars');
+  barsEl.innerHTML = schema.parts.map(part => {
+    const d = breakdown[part.skill];
+    return renderCompactBar({
+      label: d.name, percent: d.percent, color: d.color, light: d.light,
+      raw: d.raw, max: d.max, partId: part.id
+    });
+  }).join('');
+
+  if (_currentPartId) highlightCurrentPart(_currentPartId);
+
+  // type — two compact cards side by side
+  const typeEl = document.getElementById('typeBars');
+  typeEl.innerHTML = Object.values(typeBd.families).map(f => renderTypeCard(f)).join('');
+
+  // feedback always editable; only update value if it's not currently focused
+  const ft = document.getElementById('feedbackText');
+  if (document.activeElement !== ft) {
+    ft.value = student.feedback || '';
+  }
+  document.getElementById('feedbackHint').textContent =
+    totals.answered === totals.totalQuestions
+      ? 'הקידוד הושלם — ההערה תופיע בפתק המשוב ובסיכום להורים'
+      : 'ניתן להוסיף הערה בכל שלב של הקידוד';
+}
+
+function onFeedbackChange(val) {
+  const s = getCurrentStudent();
+  if (s) s.feedback = val;
+  autoSave();
+}
+
+function saveAndNext() {
+  const s = getCurrentStudent();
+  if (!s) { toast('אין תלמיד נבחר', 'danger'); return; }
+  const totals = computeTotals(s);
+  // Save whatever's there (no confirmation modal) and move on
+  if (totals.answered > 0) {
+    if (totals.answered === totals.totalQuestions) {
+      s.completedAt = new Date().toISOString();
+    }
+    autoSave();
+    toast('נשמר ✓', 'success');
+  }
+  advanceToNext();
+}
+
+function advanceToNext() {
+  const idx = state.students.findIndex(s => s.id === state.currentStudentId);
+  if (idx === -1) return;
+  if (idx + 1 < state.students.length) {
+    // Scroll to top BEFORE re-render (prevents browser from preserving scroll position)
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    state.currentStudentId = state.students[idx+1].id;
+    state.currentPartIdx = 0;
+    renderGrading();
+    // And again AFTER render (to override any browser scroll restoration)
+    scrollGradingToTop();
+  } else {
+    showLastStudentModal();
+  }
+}
+
+function showLastStudentModal() {
+  const total = state.students.length;
+  showModal('זה התלמיד האחרון ברשימה 🎉',
+    `<div class="text-sm space-y-2">
+       <p>סיימת את הקידוד של <strong>${total}</strong> תלמידי הכיתה.</p>
+       <p>כל הנתונים נשמרו אוטומטית.</p>
+     </div>
+     <div class="grid grid-cols-1 gap-2 mt-4">
+       <button class="btn btn-primary py-2.5" onclick="closeModal();goTo('dashboard')">
+         ▸ מעבר לתצוגת מיפוי כיתתי
+       </button>
+       <button class="btn btn-ghost" onclick="closeModal()">
+         השאר/י כאן
+       </button>
+     </div>`,
+    null, '');
+  const footer = document.querySelector('#modal .modal > .flex');
+  if (footer) footer.style.display = 'none';
+}
+
+function scrollGradingToTop() {
+  // Blur focus so browser doesn't scroll back to the active element
+  if (document.activeElement && document.activeElement.blur) {
+    document.activeElement.blur();
+  }
+  const doScroll = () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const qc = document.getElementById('questionsContainer');
+    if (qc) qc.scrollTop = 0;
+    // Also scroll the screen container if it has its own scroll
+    const screen = document.getElementById('screen-grading');
+    if (screen) screen.scrollTop = 0;
+    document.querySelectorAll('.question-card.focused').forEach(c => c.classList.remove('focused'));
+  };
+  doScroll();
+  requestAnimationFrame(doScroll);
+  setTimeout(doScroll, 30);
+  setTimeout(doScroll, 100);
+  setTimeout(doScroll, 250);
+}
+
+function nextStudent() { advanceToNext(); }
+function prevStudent() {
+  const idx = state.students.findIndex(s => s.id === state.currentStudentId);
+  if (idx > 0) {
+    state.currentStudentId = state.students[idx-1].id;
+    state.currentPartIdx = 0;
+    renderGrading();
+    scrollGradingToTop();
+  }
+}
+function onPickStudent(id) {
+  state.currentStudentId = id;
+  state.currentPartIdx = 0;
+  renderGrading();
+  scrollGradingToTop();
+}
+
+function copyParentSummary() {
+  const s = getCurrentStudent();
+  if (!s) return;
+  const totals = computeTotals(s);
+  const breakdown = computeSkillBreakdown(s);
+  const lines = [];
+  lines.push(`שלום רב,`);
+  lines.push(`להלן סיכום הערכת המבדק בתנ"ך עבור ${s.name}:`);
+  lines.push(``);
+  lines.push(`📊 ציון כולל: ${totals.percent}% (${totals.raw} מתוך ${totals.totalMax} נקודות)`);
+  lines.push(``);
+  lines.push(`חוזקות ותחומי למידה:`);
+  Object.values(breakdown).forEach(d => {
+    const icon = d.percent >= 75 ? '🟢' : d.percent >= 50 ? '🟡' : '🔴';
+    lines.push(`${icon} ${d.name}: ${d.percent}%`);
+  });
+  if (s.feedback) {
+    lines.push(``);
+    lines.push(`הערת המורה: ${s.feedback}`);
+  }
+  lines.push(``);
+  lines.push(`בברכה,`);
+  lines.push(state.teacher);
+  const text = lines.join('\n');
+  navigator.clipboard.writeText(text)
+    .then(() => toast('הסיכום הועתק ללוח — אפשר להדביק ב-WhatsApp או במייל', 'success'))
+    .catch(() => toast('שגיאה בהעתקה', 'danger'));
+}
+
+/* ===========================================================
+   DASHBOARD
+   =========================================================== */
+const DASHBOARD_MIN_STUDENTS = 5;
+
+function renderDashboard() {
+  const students = state.students;
+  const schema = TEST_SCHEMA[state.sector];
+
+  // Use any student with at least one answer for analytics
+  const withScores = students.filter(s => Object.keys(s.scores).length > 0);
+
+  // Restrict access if fewer than 5 students were coded
+  // (privacy/statistical-meaningfulness threshold)
+  if (withScores.length < DASHBOARD_MIN_STUDENTS) {
+    renderDashboardBlocked(withScores.length);
+    return;
+  }
+  const totalCount = students.length;
+  const percentages = withScores.map(s => computeTotals(s).percent);
+  const avg = percentages.length
+    ? Math.round(percentages.reduce((a,b)=>a+b, 0) / percentages.length) : null;
+  const minP = percentages.length ? Math.min(...percentages) : null;
+  const maxP = percentages.length ? Math.max(...percentages) : null;
+
+  document.getElementById('kpiTotal').textContent = totalCount;
+  document.getElementById('kpiAvg').textContent = avg === null ? '—' : (avg + '%');
+  const rangeEl = document.getElementById('kpiRange');
+  if (rangeEl) rangeEl.textContent = (minP === null) ? '—' : `${minP}%–${maxP}%`;
+
+  // Red flags — questions with avg < 50% (across anyone who answered them)
+  const flags = [];
+  schema.parts.forEach(p => {
+    p.questions.forEach(q => {
+      const answers = students.map(s => s.scores[q.id]).filter(v => v !== undefined);
+      if (answers.length < 2) return; // need at least 2 to flag
+      const qAvgPct = (answers.reduce((a,b)=>a+b,0) / answers.length) / q.max * 100;
+      if (qAvgPct < 50) {
+        flags.push({
+          part: p.name, label: q.label, avg: Math.round(qAvgPct),
+          n: answers.length, max: q.max
+        });
+      }
+    });
+  });
+  flags.sort((a,b)=>a.avg-b.avg);
+
+  document.getElementById('kpiFlags').textContent = flags.length;
+
+  const flagsEl = document.getElementById('redFlagsList');
+  if (flags.length === 0) {
+    flagsEl.innerHTML = '<div class="empty text-sm" style="padding:1.5rem 1rem">אין דגלים אדומים — או שטרם הוזנו מספיק נתונים</div>';
+  } else {
+    flagsEl.innerHTML = flags.slice(0,15).map(f => `
+      <div class="flex items-center justify-between p-3 rounded-lg bg-rose-50 border border-rose-100">
+        <div>
+          <div class="font-semibold text-rose-900">${escapeHtml(f.label)}</div>
+          <div class="text-xs text-slate-600">${escapeHtml(f.part)}</div>
+        </div>
+        <div class="text-left">
+          <div class="font-bold text-rose-700">${f.avg}%</div>
+          <div class="text-xs text-slate-500">${f.n} תלמידים</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Charts — use all students who have any scores (so charts populate progressively)
+  drawDistribution(withScores);
+  drawSkillsChart(withScores);
+
+  // Class table
+  renderClassTable();
+}
+
+const CHART_OPTS_VERTICAL = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      titleFont: { family: 'Heebo', size: 13 },
+      bodyFont:  { family: 'Heebo', size: 12 },
+      padding: 8
+    }
+  },
+  scales: {
+    x: { ticks: { font: { family: 'Heebo', size: 12 } }, grid: { display: false } },
+    y: { beginAtZero: true, ticks: { font: { family: 'Heebo', size: 11 } }, grid: { color: '#f1f5f9' } }
+  }
+};
+
+function renderDashboardBlocked(currentCount) {
+  // Clear and replace the dashboard content with a notice
+  document.getElementById('kpiTotal').textContent = state.students.length;
+  document.getElementById('kpiAvg').textContent   = '—';
+  const rangeEl = document.getElementById('kpiRange'); if (rangeEl) rangeEl.textContent = '—';
+  document.getElementById('kpiFlags').textContent = '—';
+
+  // Destroy existing charts
+  if (state.charts.dist)   { state.charts.dist.destroy();   state.charts.dist = null; }
+  if (state.charts.skills) { state.charts.skills.destroy(); state.charts.skills = null; }
+
+  // Replace the visualization area with a clear info card
+  const blockHTML = `
+    <div class="card p-8 text-center" style="grid-column: 1 / -1; background:#fef3c7;border:1px solid #fde68a">
+      <div class="mb-3" style="font-size:3rem">📊</div>
+      <h3 class="text-xl font-bold text-amber-900 mb-2">המיפוי הכיתתי יוצג כשיוקלדו לפחות ${DASHBOARD_MIN_STUDENTS} תלמידים</h3>
+      <p class="text-amber-800 leading-relaxed">
+        כדי שהמיפוי הכיתתי יהיה משמעותי סטטיסטית, הוא יוצג רק לאחר קידוד של ${DASHBOARD_MIN_STUDENTS} תלמידים ומעלה.<br>
+        כעת קודדו <strong>${currentCount}</strong> תלמידים.
+      </p>
+      <p class="text-sm text-amber-700 mt-3">
+        ניתן להמשיך לקודד תלמידים נוספים ולחזור לכאן.
+      </p>
+    </div>`;
+
+  // Place the block in the chart row
+  const distCard = document.getElementById('distChart')?.closest('.card');
+  const skillsCard = document.getElementById('skillsChart')?.closest('.card');
+  if (distCard && skillsCard && distCard.parentElement) {
+    // Replace the two chart cards with a single notice
+    const parent = distCard.parentElement;
+    if (!parent.dataset.blocked) {
+      parent.dataset.originalHTML = parent.innerHTML;
+      parent.innerHTML = blockHTML;
+      parent.dataset.blocked = '1';
+    }
+  }
+  // Clear red flags
+  const flagsEl = document.getElementById('redFlagsList');
+  if (flagsEl) flagsEl.innerHTML = '<div class="empty text-sm" style="padding:1.5rem">דגלים אדומים יוצגו לאחר קידוד של 5+ תלמידים</div>';
+
+  // Clear class table
+  const tableEl = document.getElementById('classTable');
+  if (tableEl) tableEl.innerHTML = '<div class="empty p-6">טבלת הציונים תוצג לאחר קידוד של 5+ תלמידים</div>';
+  const hint = document.getElementById('classTableHint');
+  if (hint) hint.remove();
+}
+
+function unblockDashboardIfNeeded() {
+  // Restore the chart cards if previously blocked
+  const distChartExists = document.getElementById('distChart');
+  if (distChartExists) return; // not blocked
+  // Find a parent that was marked as blocked
+  document.querySelectorAll('[data-blocked="1"]').forEach(el => {
+    if (el.dataset.originalHTML) {
+      el.innerHTML = el.dataset.originalHTML;
+      delete el.dataset.blocked;
+      delete el.dataset.originalHTML;
+    }
+  });
+}
+
+function drawDistribution(students) {
+  unblockDashboardIfNeeded();
+  const ctx = document.getElementById('distChart');
+  const overlay = document.getElementById('distEmpty');
+  if (!students.length) {
+    if (state.charts.dist) state.charts.dist.destroy();
+    state.charts.dist = null;
+    if (overlay) overlay.style.display = 'block';
+    ctx.style.display = 'none';
+    return;
+  }
+  if (overlay) overlay.style.display = 'none';
+  ctx.style.display = 'block';
+
+  const buckets = [0,0,0,0,0];
+  students.forEach(s => {
+    const p = computeTotals(s).percent;
+    if (p < 60) buckets[0]++;
+    else if (p < 70) buckets[1]++;
+    else if (p < 80) buckets[2]++;
+    else if (p < 90) buckets[3]++;
+    else buckets[4]++;
+  });
+  if (state.charts.dist) state.charts.dist.destroy();
+  const opts = JSON.parse(JSON.stringify(CHART_OPTS_VERTICAL));
+  opts.scales.y.ticks.stepSize = 1;
+  opts.scales.y.ticks.precision = 0;
+  opts.scales.y.title = { display: true, text: 'מספר תלמידים', font: { family: 'Heebo', size: 11 }, color: '#64748b' };
+  state.charts.dist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['פחות מ-60%','60–69%','70–79%','80–89%','90–100%'],
+      datasets: [{
+        label: 'תלמידים',
+        data: buckets,
+        backgroundColor: ['#ef4444','#f59e0b','#eab308','#22c55e','#10b981'],
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 60
+      }]
+    },
+    options: opts
+  });
+}
+
+function drawSkillsChart(students) {
+  const ctx = document.getElementById('skillsChart');
+  const overlay = document.getElementById('skillsEmpty');
+  if (!students.length) {
+    if (state.charts.skills) state.charts.skills.destroy();
+    state.charts.skills = null;
+    if (overlay) overlay.style.display = 'block';
+    ctx.style.display = 'none';
+    return;
+  }
+  if (overlay) overlay.style.display = 'none';
+  ctx.style.display = 'block';
+
+  const schema = TEST_SCHEMA[state.sector];
+  const labels = schema.parts.map(p => SKILL_DEFS[p.skill].short);
+  const colors = schema.parts.map(p => SKILL_DEFS[p.skill].color);
+  const data = schema.parts.map(p => {
+    const totals = students.map(s => {
+      const partMax = p.questions.reduce((a,q)=>a+q.max,0);
+      const partRaw = p.questions.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      return partMax ? (partRaw/partMax)*100 : 0;
+    });
+    return Math.round(totals.reduce((a,b)=>a+b,0) / students.length);
+  });
+  if (state.charts.skills) state.charts.skills.destroy();
+  const opts = JSON.parse(JSON.stringify(CHART_OPTS_VERTICAL));
+  opts.scales.y.max = 100;
+  opts.scales.y.title = { display: true, text: 'אחוז הצלחה ממוצע', font: { family: 'Heebo', size: 11 }, color: '#64748b' };
+  opts.scales.y.ticks.callback = function(v){ return v + '%'; };
+  state.charts.skills = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'ממוצע %',
+        data,
+        backgroundColor: colors,
+        borderRadius: 6,
+        borderSkipped: false,
+        maxBarThickness: 60
+      }]
+    },
+    options: opts
+  });
+}
+
+/* =============== PERSONAL MAPPING VIEW (per student) =============== */
+function showPersonalMapping(studentId) {
+  const s = state.students.find(x => x.id === studentId);
+  if (!s) return;
+  const t = computeTotals(s);
+  const b = computeSkillBreakdown(s);
+  const stat = STATUS_OPTIONS.find(o => o.id === s.status);
+
+  const tb = computeTypeBreakdown(s);
+  const ringBg = `conic-gradient(#4f46e5 ${t.percent}%, #f1f5f9 ${t.percent}%)`;
+
+  const html = `
+    <div class="space-y-5">
+      <div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-slate-100">
+        <div class="flex-1 min-w-[180px]">
+          <div class="text-xl font-bold">${escapeHtml(s.name)}</div>
+          <div class="mt-1 flex items-center gap-2 flex-wrap">
+            <span class="chip ${stat.chip}">${stat.label}</span>
+            ${s.accommodation ? `<span class="text-sm text-slate-500">· ${escapeHtml(s.accommodation)}</span>` : ''}
+          </div>
+        </div>
+        <div style="width:110px;height:110px;border-radius:9999px;background:${ringBg};display:flex;align-items:center;justify-content:center;position:relative;flex-shrink:0">
+          <div style="position:absolute;inset:10px;border-radius:9999px;background:white"></div>
+          <div style="position:relative;text-align:center">
+            <div style="font-size:1.7rem;font-weight:800;line-height:1;color:#0f172a;font-variant-numeric:tabular-nums">${t.raw}</div>
+            <div style="font-size:.65rem;color:#64748b;margin-top:3px">מתוך ${t.totalMax} נק׳</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">חלקי המבדק</h4>
+        <div class="space-y-3">
+        ${Object.values(b).map(d => renderCompactBar({
+          label: d.name, percent: d.percent, color: d.color, light: d.light, raw: d.raw, max: d.max
+        })).join('')}
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">סוג שאלה</h4>
+        <div class="grid grid-cols-2 gap-3">
+        ${Object.values(tb.families).map(f => renderTypeCard(f)).join('')}
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">הערה אישית למשוב</h4>
+        <textarea id="pmFeedback_${s.id}" class="input" rows="3" placeholder="הערה אישית לתלמיד/ה...">${escapeHtml(s.feedback||'')}</textarea>
+      </div>
+
+      <div class="flex gap-2 flex-wrap pt-2 border-t border-slate-100">
+        <button class="btn btn-primary" onclick="savePersonalMapping('${s.id}')">שמירת הערה</button>
+        <button class="btn btn-secondary" onclick="state.currentStudentId='${s.id}';closeModal();goTo('grading')">המשך קידוד</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('modalTitle').textContent = 'מיפוי אישי';
+  document.getElementById('modalBody').innerHTML = html;
+  // hide modal default buttons
+  document.querySelector('#modal .modal > .flex').style.display = 'none';
+  document.getElementById('modal').classList.add('show');
+
+  // close button for this modal type
+  let closer = document.getElementById('pmCloseBtn');
+  if (!closer) {
+    closer = document.createElement('button');
+    closer.id = 'pmCloseBtn';
+    closer.className = 'btn btn-ghost';
+    closer.textContent = '✕';
+    closer.style.position = 'absolute';
+    closer.style.top = '0.5rem';
+    closer.style.left = '0.5rem';
+    closer.style.fontSize = '1.25rem';
+    closer.style.padding = '.25rem .65rem';
+    closer.onclick = () => closeModal();
+    document.querySelector('#modal .modal').style.position = 'relative';
+    document.querySelector('#modal .modal').appendChild(closer);
+  }
+  closer.style.display = 'inline-flex';
+}
+
+function savePersonalMapping(id) {
+  const s = state.students.find(x => x.id === id);
+  if (!s) return;
+  const ta = document.getElementById('pmFeedback_' + id);
+  s.feedback = ta ? ta.value : '';
+  toast('ההערה נשמרה ✓', 'success');
+  renderRoster();
+  if (document.getElementById('screen-dashboard').classList.contains('active')) renderDashboard();
+  autoSave();
+}
+
+function copyParentSummaryForId(id) {
+  const orig = state.currentStudentId;
+  state.currentStudentId = id;
+  // save feedback from modal first if present
+  const ta = document.getElementById('pmFeedback_' + id);
+  if (ta) {
+    const s = state.students.find(x=>x.id===id);
+    if (s) s.feedback = ta.value;
+  }
+  copyParentSummary();
+  state.currentStudentId = orig;
+}
+
+function renderClassTable() {
+  const wrap = document.getElementById('classTable');
+  const schema = TEST_SCHEMA[state.sector];
+  if (!state.students.length) {
+    wrap.innerHTML = '<div class="empty p-5">לא קוים קידוד עדיין</div>'; return;
+  }
+  const allQs = schema.parts.flatMap(p => p.questions);
+  let html = '<table class="w-full text-sm" style="border-collapse: collapse">';
+  html += `<thead><tr class="bg-slate-50 text-xs uppercase text-slate-500">
+    <th class="p-3 text-right sticky right-0 bg-slate-50">תלמיד</th>
+    <th class="p-3">סטטוס</th>
+    ${schema.parts.map(p => {
+      const def = SKILL_DEFS[p.skill];
+      return `<th class="p-3 text-center" style="border-bottom:3px solid ${def.color}">${def.short}</th>`;
+    }).join('')}
+    <th class="p-3 text-center">ציון כולל</th>
+  </tr></thead><tbody>`;
+  state.students.forEach(s => {
+    const t = computeTotals(s);
+    const b = computeSkillBreakdown(s);
+    const stat = STATUS_OPTIONS.find(o=>o.id===s.status);
+    html += `<tr class="border-t border-slate-100 hover:bg-indigo-50/40 cursor-pointer" onclick="showPersonalMapping('${s.id}')">
+      <td class="p-3 font-semibold sticky right-0 bg-white">
+        <span class="text-indigo-700 hover:underline">${escapeHtml(s.name)}</span>
+        ${s.feedback ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="inline mr-1 text-amber-500" title="כולל הערה"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>' : ''}
+      </td>
+      <td class="p-3"><span class="chip ${stat.chip}">${stat.label}</span></td>
+      ${schema.parts.map(p => {
+        const d = b[p.skill];
+        const c = d.percent >= 75 ? 'text-emerald-600' : d.percent >= 50 ? 'text-amber-600' : 'text-rose-600';
+        return `<td class="p-3 text-center ${c}">${d.filled === 0 ? '—' : d.percent + '%'}</td>`;
+      }).join('')}
+      <td class="p-3 text-center font-bold">${t.answered === 0 ? '—' : t.percent + '%'}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  // header hint
+  const head = document.querySelector('#classTable + *, #classTable');
+  // small caption above table
+  if (!document.getElementById('classTableHint')) {
+    const hint = document.createElement('div');
+    hint.id = 'classTableHint';
+    hint.className = 'text-xs text-slate-500 px-5 pb-3';
+    hint.textContent = '💡 לחיצה על שורת תלמיד פותחת את המיפוי האישי שלו עם אפשרות להוסיף/לערוך הערה';
+    wrap.parentNode.insertBefore(hint, wrap);
+  }
+}
+
+/* ===========================================================
+   EXPORT — Excel (formatted, 3 sheets, with styling)
+   =========================================================== */
+
+// ----- style helpers -----
+const XL_BORDER = { style: 'thin', color: { rgb: 'CBD5E1' } };
+const XL_BORDER_THICK = { style: 'medium', color: { rgb: '94A3B8' } };
+const allBorders = (thick) => {
+  const b = thick ? XL_BORDER_THICK : XL_BORDER;
+  return { top: b, bottom: b, left: b, right: b };
+};
+const baseAlign = { vertical: 'center', readingOrder: 2 };
+const STYLES = {
+  title: {
+    font: { name: 'Heebo', sz: 16, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { patternType: 'solid', fgColor: { rgb: '4F46E5' } },
+    alignment: { ...baseAlign, horizontal: 'center', wrapText: true }
+  },
+  subtitle: {
+    font: { name: 'Heebo', sz: 11, color: { rgb: '4F46E5' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'EEF2FF' } },
+    alignment: { ...baseAlign, horizontal: 'center' }
+  },
+  metaLabel: {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: '475569' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'F8FAFC' } },
+    alignment: { ...baseAlign, horizontal: 'right' },
+    border: allBorders()
+  },
+  metaValue: {
+    font: { name: 'Heebo', sz: 11, color: { rgb: '0F172A' } },
+    alignment: { ...baseAlign, horizontal: 'right' },
+    border: allBorders()
+  },
+  sectionHeader: {
+    font: { name: 'Heebo', sz: 12, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { patternType: 'solid', fgColor: { rgb: '475569' } },
+    alignment: { ...baseAlign, horizontal: 'right' }
+  },
+  columnHeader: {
+    font: { name: 'Heebo', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { patternType: 'solid', fgColor: { rgb: '64748B' } },
+    alignment: { ...baseAlign, horizontal: 'center', wrapText: true },
+    border: allBorders()
+  },
+  partHeader: (rgb) => ({
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { patternType: 'solid', fgColor: { rgb } },
+    alignment: { ...baseAlign, horizontal: 'center', wrapText: true },
+    border: allBorders()
+  }),
+  questionHeader: (rgb) => ({
+    font: { name: 'Heebo', sz: 9, bold: true, color: { rgb: '0F172A' } },
+    fill: { patternType: 'solid', fgColor: { rgb } },
+    alignment: { ...baseAlign, horizontal: 'center', wrapText: true },
+    border: allBorders()
+  }),
+  nameCell: {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: '0F172A' } },
+    alignment: { ...baseAlign, horizontal: 'right' },
+    border: allBorders()
+  },
+  dataCell: {
+    font: { name: 'Heebo', sz: 10, color: { rgb: '0F172A' } },
+    alignment: { ...baseAlign, horizontal: 'center' },
+    border: allBorders()
+  },
+  partTotalCell: {
+    font: { name: 'Heebo', sz: 10, bold: true, color: { rgb: '0F172A' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'EEF2FF' } },
+    alignment: { ...baseAlign, horizontal: 'center' },
+    border: allBorders()
+  },
+  totalCell: {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { patternType: 'solid', fgColor: { rgb: '4F46E5' } },
+    alignment: { ...baseAlign, horizontal: 'center' },
+    border: allBorders()
+  },
+  averageRow: {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: '92400E' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'FEF3C7' } },
+    alignment: { ...baseAlign, horizontal: 'center' },
+    border: allBorders(true)
+  },
+  averageRowName: {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: '92400E' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'FEF3C7' } },
+    alignment: { ...baseAlign, horizontal: 'right' },
+    border: allBorders(true)
+  }
+};
+
+function setCell(ws, r, c, val, style, type) {
+  const addr = XLSX.utils.encode_cell({ r, c });
+  ws[addr] = { v: val, t: type || (typeof val === 'number' ? 'n' : 's') };
+  if (style) ws[addr].s = style;
+}
+function setRange(ws, r1, c1, r2, c2, style) {
+  for (let r = r1; r <= r2; r++) for (let c = c1; c <= c2; c++) {
+    const addr = XLSX.utils.encode_cell({ r, c });
+    if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+    ws[addr].s = { ...(ws[addr].s||{}), ...style };
+  }
+}
+function mergeRange(ws, r1, c1, r2, c2) {
+  if (!ws['!merges']) ws['!merges'] = [];
+  ws['!merges'].push({ s: { r: r1, c: c1 }, e: { r: r2, c: c2 } });
+}
+
+function avg(arr) {
+  return arr.length ? arr.reduce((a,b)=>a+b,0) / arr.length : null;
+}
+
+function buildWorkbook() {
+  const wb = XLSX.utils.book_new();
+  // workbook-level RTL view (so columns are right-to-left when opened)
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, buildSummarySheet(),      'סיכום כיתתי');
+  XLSX.utils.book_append_sheet(wb, buildScoresSheet(),        'ציונים מפורטים');
+  XLSX.utils.book_append_sheet(wb, buildTypeAnalysisSheet(),  'לפי סוג שאלה');
+  return wb;
+}
+
+function exportExcel() {
+  const safeName = state.className.replace(/[\\/:*?"<>|]/g,'_');
+  const fname = `מיפוי_תנך_${safeName}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(buildWorkbook(), fname);
+  toast('הקובץ הורד', 'success');
+}
+
+/* ----------- Sheet 1: Summary ----------- */
+function buildSummarySheet() {
+  const ws = {};
+  ws['!ref'] = 'A1:F40';
+  ws['!rtl'] = true;
+  ws['!cols'] = [{wch:24},{wch:22},{wch:18},{wch:18},{wch:18},{wch:18}];
+
+  const schema = TEST_SCHEMA[state.sector];
+  let r = 0;
+
+  // Title rows
+  setCell(ws, r, 0, 'מערכת מיפוי והערכה פדגוגית', STYLES.title);
+  mergeRange(ws, r, 0, r, 5); r++;
+  setCell(ws, r, 0, 'מבדק פנימי בתנ"ך · כיתות ו\' · תשפ"ו', STYLES.subtitle);
+  mergeRange(ws, r, 0, r, 5); r++;
+  ws['!rows'] = [{ hpt: 32 }, { hpt: 22 }];
+  r++; // blank row
+
+  // Class info section
+  setCell(ws, r, 0, 'פרטי הכיתה', STYLES.sectionHeader);
+  mergeRange(ws, r, 0, r, 5); r++;
+  const meta = [
+    ['שם המורה', state.teacher],
+    ['כיתה',     state.className],
+    ['נוסח המבדק', schema.name],
+    ['תאריך הפקה', new Date().toLocaleDateString('he-IL')]
+  ];
+  meta.forEach(([k,v]) => {
+    setCell(ws, r, 0, k, STYLES.metaLabel);
+    setCell(ws, r, 1, v, STYLES.metaValue);
+    mergeRange(ws, r, 1, r, 5);
+    r++;
+  });
+  r++;
+
+  // Class KPIs
+  setCell(ws, r, 0, 'סיכום כיתתי', STYLES.sectionHeader);
+  mergeRange(ws, r, 0, r, 5); r++;
+
+  const students = state.students;
+  const withScores = students.filter(s => Object.keys(s.scores).length > 0);
+  const pcts = withScores.map(s => computeTotals(s).percent);
+  const avgPct = pcts.length ? Math.round(avg(pcts)) : null;
+  const kpis = [
+    ['תלמידים בכיתה', students.length],
+    ['תלמידים שקיבלו ציון', withScores.length],
+    ['ציון ממוצע כיתתי', avgPct === null ? '—' : (avgPct + '%')],
+    ['ציון מרבי', pcts.length ? (Math.max(...pcts) + '%') : '—'],
+    ['ציון מינימלי', pcts.length ? (Math.min(...pcts) + '%') : '—']
+  ];
+  kpis.forEach(([k,v]) => {
+    setCell(ws, r, 0, k, STYLES.metaLabel);
+    setCell(ws, r, 1, v, STYLES.metaValue);
+    mergeRange(ws, r, 1, r, 5);
+    r++;
+  });
+  r++;
+
+  // Averages by part
+  setCell(ws, r, 0, 'ממוצעים לפי חלקי המבדק', STYLES.sectionHeader);
+  mergeRange(ws, r, 0, r, 5); r++;
+  ['חלק במבדק','מספר שאלות','נקודות מקסימום','ממוצע נקודות','ממוצע אחוזים'].forEach((h,i) => {
+    setCell(ws, r, i, h, STYLES.columnHeader);
+  });
+  r++;
+  schema.parts.forEach(p => {
+    const def = SKILL_DEFS[p.skill];
+    const partMax = p.questions.reduce((a,q)=>a+q.max,0);
+    const rawAvgs = withScores.map(s => p.questions.reduce((a,q)=>a+(s.scores[q.id]||0),0));
+    const pctAvgs = withScores.map(s => {
+      const partRaw = p.questions.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      return partMax ? Math.round(partRaw/partMax*100) : 0;
+    });
+    const cellStyle = { ...STYLES.dataCell, fill: { patternType: 'solid', fgColor: { rgb: def.color.replace('#','') + '15' } } };
+    const partLabelStyle = STYLES.partHeader(def.color.replace('#',''));
+    setCell(ws, r, 0, def.name, partLabelStyle);
+    setCell(ws, r, 1, p.questions.length, STYLES.dataCell);
+    setCell(ws, r, 2, partMax,               STYLES.dataCell);
+    setCell(ws, r, 3, rawAvgs.length ? Number(avg(rawAvgs).toFixed(1)) : '—', STYLES.dataCell);
+    setCell(ws, r, 4, pctAvgs.length ? (Math.round(avg(pctAvgs)) + '%') : '—', STYLES.partTotalCell);
+    r++;
+  });
+  r++;
+
+  // Averages by question type (family + individual types) — PERCENTAGES ONLY
+  setCell(ws, r, 0, 'ממוצעים לפי סוג שאלה', STYLES.sectionHeader);
+  mergeRange(ws, r, 0, r, 5); r++;
+  ['סוג שאלה','מספר שאלות בכלל המבדק','אחוז הצלחה ממוצע'].forEach((h,i) => {
+    setCell(ws, r, i, h, STYLES.columnHeader);
+  });
+  r++;
+  // families first
+  const allQs = schema.parts.flatMap(p => p.questions);
+  const groups = {};
+  allQs.forEach(q => {
+    const def = TYPE_DEFS[q.type];
+    if (!groups[def.family]) groups[def.family] = { qs: [], max: 0 };
+    groups[def.family].qs.push(q);
+    groups[def.family].max += q.max;
+  });
+  Object.entries(groups).forEach(([fam, info]) => {
+    const pctAvgs = withScores.map(s => {
+      const raw = info.qs.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      return info.max ? Math.round(raw/info.max*100) : 0;
+    });
+    setCell(ws, r, 0, 'שאלות ' + fam, STYLES.metaLabel);
+    setCell(ws, r, 1, info.qs.length, STYLES.dataCell);
+    setCell(ws, r, 2, pctAvgs.length ? (Math.round(avg(pctAvgs)) + '%') : '—', STYLES.partTotalCell);
+    r++;
+  });
+  // individual types
+  const typeGroups = {};
+  allQs.forEach(q => {
+    if (!typeGroups[q.type]) typeGroups[q.type] = { qs: [], max: 0 };
+    typeGroups[q.type].qs.push(q);
+    typeGroups[q.type].max += q.max;
+  });
+  Object.entries(typeGroups).forEach(([type, info]) => {
+    const def = TYPE_DEFS[type];
+    const pctAvgs = withScores.map(s => {
+      const raw = info.qs.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      return info.max ? Math.round(raw/info.max*100) : 0;
+    });
+    setCell(ws, r, 0, '   · ' + def.name + ' (' + def.family + ')', { ...STYLES.dataCell, alignment: { ...baseAlign, horizontal: 'right' } });
+    setCell(ws, r, 1, info.qs.length, STYLES.dataCell);
+    setCell(ws, r, 2, pctAvgs.length ? (Math.round(avg(pctAvgs)) + '%') : '—', STYLES.dataCell);
+    r++;
+  });
+
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:r,c:5} });
+  return ws;
+}
+
+/* ----------- Sheet 2: Detailed scores ----------- */
+function buildScoresSheet() {
+  const ws = {};
+  ws['!rtl'] = true;
+  const schema = TEST_SCHEMA[state.sector];
+  const students = state.students;
+  const allQs = schema.parts.flatMap(p => p.questions);
+
+  // Column layout:
+  //   col 0: name | col 1: status | col 2: accom
+  //   then per part: N question cols + 1 "סה"כ חלק"
+  //   final: ציון | אחוז
+  const partColOffsets = [];
+  let nextCol = 3;
+  schema.parts.forEach(p => {
+    partColOffsets.push({ start: nextCol, end: nextCol + p.questions.length });
+    nextCol += p.questions.length + 1;
+  });
+  const totalCol = nextCol;
+  const pctCol   = nextCol + 1;
+  const lastCol  = pctCol;
+
+  let r = 0;
+
+  // Title
+  setCell(ws, r, 0, `ציונים מפורטים — ${state.className} (${schema.name}) — מורה: ${state.teacher}`, STYLES.title);
+  mergeRange(ws, r, 0, r, lastCol);
+  r++;
+  r++;
+
+  // Part headers (merged across each part's question columns)
+  setCell(ws, r, 0, 'פרטי תלמיד', STYLES.sectionHeader);
+  mergeRange(ws, r, 0, r, 2);
+  schema.parts.forEach((p, idx) => {
+    const def = SKILL_DEFS[p.skill];
+    const partMax = p.questions.reduce((a,q)=>a+q.max,0);
+    const off = partColOffsets[idx];
+    const label = `${p.name}\nסה"כ ${partMax} נק׳`;
+    setCell(ws, r, off.start, label, STYLES.partHeader(def.color.replace('#','')));
+    mergeRange(ws, r, off.start, r, off.end);
+  });
+  setCell(ws, r, totalCol, 'ציון כולל', STYLES.partHeader('4F46E5'));
+  mergeRange(ws, r, totalCol, r, pctCol);
+  r++;
+
+  // Question column headers (Q name + type + max)
+  setCell(ws, r, 0, 'שם תלמיד', STYLES.columnHeader);
+  setCell(ws, r, 1, 'סטטוס',    STYLES.columnHeader);
+  setCell(ws, r, 2, 'התאמות',  STYLES.columnHeader);
+  schema.parts.forEach((p, idx) => {
+    const def = SKILL_DEFS[p.skill];
+    const off = partColOffsets[idx];
+    const tint = def.color.replace('#','') + '22'; // not used; using light gray
+    p.questions.forEach((q, i) => {
+      const tdef = TYPE_DEFS[q.type];
+      const hdr = `${q.label.replace('—','\n')}\n(${tdef.name})\nמקס ${q.max}`;
+      setCell(ws, r, off.start + i, hdr, STYLES.questionHeader(def.light.replace('#','')));
+    });
+    setCell(ws, r, off.end, `סה"כ\nחלק`, STYLES.questionHeader(def.light.replace('#','')));
+  });
+  setCell(ws, r, totalCol, 'נקודות', STYLES.columnHeader);
+  setCell(ws, r, pctCol,   'אחוז',   STYLES.columnHeader);
+  r++;
+
+  // Row height for header row
+  if (!ws['!rows']) ws['!rows'] = [];
+  ws['!rows'][r-1] = { hpt: 64 };
+
+  // Student rows
+  students.forEach(s => {
+    const stat = STATUS_OPTIONS.find(o=>o.id===s.status);
+    setCell(ws, r, 0, s.name, STYLES.nameCell);
+    setCell(ws, r, 1, stat.label, STYLES.dataCell);
+    setCell(ws, r, 2, s.accommodation || '', STYLES.dataCell);
+    schema.parts.forEach((p, idx) => {
+      const off = partColOffsets[idx];
+      let partSum = 0, partHasAny = false;
+      p.questions.forEach((q, i) => {
+        const v = s.scores[q.id];
+        setCell(ws, r, off.start + i, v === undefined ? '' : v, STYLES.dataCell);
+        if (v !== undefined) { partSum += v; partHasAny = true; }
+      });
+      setCell(ws, r, off.end, partHasAny ? partSum : '', STYLES.partTotalCell);
+    });
+    const t = computeTotals(s);
+    setCell(ws, r, totalCol, t.answered === 0 ? '' : `${t.raw} / ${t.totalMax}`, STYLES.totalCell);
+    setCell(ws, r, pctCol,   t.answered === 0 ? '' : `${t.percent}%`, STYLES.totalCell);
+    r++;
+  });
+
+  // Class average row — raw points
+  setCell(ws, r, 0, 'ממוצע כיתתי (נקודות)', STYLES.averageRowName);
+  setCell(ws, r, 1, '', STYLES.averageRow);
+  setCell(ws, r, 2, '', STYLES.averageRow);
+  schema.parts.forEach((p, idx) => {
+    const off = partColOffsets[idx];
+    p.questions.forEach((q, i) => {
+      const vals = students.map(s => s.scores[q.id]).filter(v => v !== undefined);
+      setCell(ws, r, off.start + i, vals.length ? Number(avg(vals).toFixed(1)) : '', STYLES.averageRow);
+    });
+    const partRaws = students
+      .map(s => p.questions.reduce((a,q)=>a+(s.scores[q.id]||0),0))
+      .filter((_,i) => Object.keys(students[i].scores).length > 0);
+    setCell(ws, r, off.end, partRaws.length ? Number(avg(partRaws).toFixed(1)) : '', STYLES.averageRow);
+  });
+  const totalPcts = students.filter(s=>Object.keys(s.scores).length>0).map(s=>computeTotals(s).percent);
+  const totalRaws = students.filter(s=>Object.keys(s.scores).length>0).map(s=>computeTotals(s).raw);
+  setCell(ws, r, totalCol, totalRaws.length ? Number(avg(totalRaws).toFixed(1)) : '', STYLES.averageRow);
+  setCell(ws, r, pctCol,   totalPcts.length ? (Math.round(avg(totalPcts)) + '%') : '', STYLES.averageRow);
+  r++;
+
+  // Class average row — percentages (second row for clarity)
+  const PCT_ROW_STYLE = {
+    font: { name: 'Heebo', sz: 11, bold: true, color: { rgb: '92400E' } },
+    fill: { patternType: 'solid', fgColor: { rgb: 'FED7AA' } },
+    alignment: { ...baseAlign, horizontal: 'center' },
+    border: allBorders(true)
+  };
+  const PCT_ROW_NAME = { ...PCT_ROW_STYLE, alignment: { ...baseAlign, horizontal: 'right' } };
+  setCell(ws, r, 0, 'ממוצע כיתתי (אחוזים)', PCT_ROW_NAME);
+  setCell(ws, r, 1, '', PCT_ROW_STYLE);
+  setCell(ws, r, 2, '', PCT_ROW_STYLE);
+  schema.parts.forEach((p, idx) => {
+    const off = partColOffsets[idx];
+    p.questions.forEach((q, i) => {
+      const vals = students.map(s => s.scores[q.id]).filter(v => v !== undefined);
+      const pct = vals.length ? Math.round(avg(vals)/q.max*100) : null;
+      setCell(ws, r, off.start + i, pct === null ? '' : pct + '%', PCT_ROW_STYLE);
+    });
+    const partMax = p.questions.reduce((a,q)=>a+q.max,0);
+    const partRaws = students
+      .map(s => p.questions.reduce((a,q)=>a+(s.scores[q.id]||0),0))
+      .filter((_,i) => Object.keys(students[i].scores).length > 0);
+    const partPct = partRaws.length && partMax ? Math.round(avg(partRaws)/partMax*100) : null;
+    setCell(ws, r, off.end, partPct === null ? '' : partPct + '%', PCT_ROW_STYLE);
+  });
+  setCell(ws, r, totalCol, totalPcts.length ? (Math.round(avg(totalPcts)) + '%') : '', PCT_ROW_STYLE);
+  setCell(ws, r, pctCol,   totalPcts.length ? (Math.round(avg(totalPcts)) + '%') : '', PCT_ROW_STYLE);
+  r++;
+
+  // Freeze panes: keep first 3 columns (name/status/accom) + first 4 header rows visible
+  ws['!freeze'] = { xSplit: 3, ySplit: 4 };
+  ws['!views'] = [{ state: 'frozen', xSplit: 3, ySplit: 4, topLeftCell: 'D5', activePane: 'bottomRight' }];
+
+  // Column widths
+  const cols = [];
+  cols[0] = { wch: 22 };
+  cols[1] = { wch: 11 };
+  cols[2] = { wch: 14 };
+  schema.parts.forEach((p, idx) => {
+    const off = partColOffsets[idx];
+    for (let i = off.start; i <= off.end; i++) cols[i] = { wch: 11 };
+  });
+  cols[totalCol] = { wch: 14 };
+  cols[pctCol]   = { wch: 9 };
+  ws['!cols'] = cols;
+
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:r,c:lastCol} });
+  return ws;
+}
+
+/* ----------- Sheet 3: per-student per-type analysis ----------- */
+function buildTypeAnalysisSheet() {
+  const ws = {};
+  ws['!rtl'] = true;
+  const schema = TEST_SCHEMA[state.sector];
+  const students = state.students;
+  const types = Object.keys(TYPE_DEFS);
+
+  // Pre-compute groups
+  const allQs = schema.parts.flatMap(p => p.questions);
+  const groupsByFam = {};
+  const groupsByType = {};
+  allQs.forEach(q => {
+    const def = TYPE_DEFS[q.type];
+    if (!groupsByFam[def.family]) groupsByFam[def.family] = [];
+    groupsByFam[def.family].push(q);
+    if (!groupsByType[q.type]) groupsByType[q.type] = [];
+    groupsByType[q.type].push(q);
+  });
+
+  let r = 0;
+  setCell(ws, r, 0, 'ניתוח לפי סוג שאלה — אחוזי הצלחה לכל תלמיד', STYLES.title);
+  const families = Object.keys(groupsByFam);
+  const lastCol = families.length + types.length; // 1 col per family/type
+  mergeRange(ws, r, 0, r, lastCol);
+  r++;
+  r++;
+
+  // Single-row column header
+  setCell(ws, r, 0, 'תלמיד', STYLES.columnHeader);
+  let c = 1;
+  families.forEach(fam => {
+    setCell(ws, r, c++, 'שאלות ' + fam, STYLES.partHeader('64748B'));
+  });
+  types.forEach(t => {
+    const def = TYPE_DEFS[t];
+    setCell(ws, r, c++, def.name, STYLES.partHeader(def.color.replace('#','')));
+  });
+  r++;
+
+  // Per-student rows — % only
+  students.forEach(s => {
+    setCell(ws, r, 0, s.name, STYLES.nameCell);
+    let c = 1;
+    families.forEach(fam => {
+      const qs = groupsByFam[fam];
+      const max = qs.reduce((a,q)=>a+q.max,0);
+      const raw = qs.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      const filled = qs.some(q => s.scores[q.id] !== undefined);
+      setCell(ws, r, c++, filled ? Math.round(raw/max*100) + '%' : '', STYLES.partTotalCell);
+    });
+    types.forEach(t => {
+      const qs = groupsByType[t] || [];
+      const max = qs.reduce((a,q)=>a+q.max,0);
+      const raw = qs.reduce((a,q)=>a+(s.scores[q.id]||0),0);
+      const filled = qs.some(q => s.scores[q.id] !== undefined);
+      setCell(ws, r, c++, filled ? Math.round(raw/max*100) + '%' : '', STYLES.partTotalCell);
+    });
+    r++;
+  });
+
+  // Class average row — % only
+  setCell(ws, r, 0, 'ממוצע כיתתי', STYLES.averageRowName);
+  c = 1;
+  families.forEach(fam => {
+    const qs = groupsByFam[fam];
+    const max = qs.reduce((a,q)=>a+q.max,0);
+    const raws = students.filter(s=>Object.keys(s.scores).length>0)
+                         .map(s => qs.reduce((a,q)=>a+(s.scores[q.id]||0),0));
+    const pcts = raws.map(raw => max ? Math.round(raw/max*100) : 0);
+    setCell(ws, r, c++, pcts.length ? Math.round(avg(pcts)) + '%' : '', STYLES.averageRow);
+  });
+  types.forEach(t => {
+    const qs = groupsByType[t] || [];
+    const max = qs.reduce((a,q)=>a+q.max,0);
+    const raws = students.filter(s=>Object.keys(s.scores).length>0)
+                         .map(s => qs.reduce((a,q)=>a+(s.scores[q.id]||0),0));
+    const pcts = raws.map(raw => max ? Math.round(raw/max*100) : 0);
+    setCell(ws, r, c++, pcts.length ? Math.round(avg(pcts)) + '%' : '', STYLES.averageRow);
+  });
+  r++;
+
+  // Column widths
+  const colsArr = [{ wch: 22 }];
+  for (let i = 0; i < families.length + types.length; i++) {
+    colsArr.push({ wch: 14 });
+  }
+  ws['!cols'] = colsArr;
+
+  // Freeze: name column + header row
+  ws['!freeze'] = { xSplit: 1, ySplit: 3 };
+  ws['!views'] = [{ state: 'frozen', xSplit: 1, ySplit: 3, topLeftCell: 'B4', activePane: 'bottomRight' }];
+  ws['!ref'] = XLSX.utils.encode_range({ s:{r:0,c:0}, e:{r:r,c:lastCol} });
+  return ws;
+}
+
+/* ===========================================================
+   PDF SLIPS — via browser print (best Hebrew support)
+   =========================================================== */
+function exportSlipsPdf() {
+  const printView = document.getElementById('printView');
+  const schema = TEST_SCHEMA[state.sector];
+  const SHORT_DESC = {
+    knowledge: 'בקיאות בתכני התנ"ך שנלמדו בכיתות ה\'–ו\'',
+    inquiry:   'קריאה והבנה עצמאית של טקסט תנ"כי, פירוש והסקה',
+    general:   'דמויות מפתח, אירועים וסיפורי היסוד של עם ישראל'
+  };
+
+  const slips = state.students.map(s => {
+    const t = computeTotals(s);
+    const b = computeSkillBreakdown(s);
+    if (t.answered === 0) return '';
+
+    return `
+      <div class="strip-pdf">
+        <div class="strip-header">
+          <div class="strip-header-right">
+            <div class="strip-eyebrow">משוב · מבדק תנ"ך · ${escapeHtml(state.className)}</div>
+            <div class="strip-name">${escapeHtml(s.name)}</div>
+          </div>
+        </div>
+
+        <div class="strip-intro">
+          <strong>על המבדק:</strong>
+          מבדק זה הוא כלי להערכה מסכמת של הידע, המיומנויות והערכים שנרכשו בלימוד התנ"ך
+          לאורך שנות בית הספר היסודי. הוא כולל שלושה חלקים משלימים:
+        </div>
+
+        <div class="strip-parts">
+          ${schema.parts.map(p => {
+            const def = SKILL_DEFS[p.skill];
+            const d = b[p.skill];
+            return `
+              <div class="strip-part-row">
+                <span class="strip-part-dot" style="background:${def.color}"></span>
+                <div class="strip-part-info">
+                  <div class="strip-part-name">${def.name}</div>
+                  <div class="strip-part-desc">${SHORT_DESC[p.skill]}</div>
+                </div>
+                <div class="strip-part-bar"><div class="strip-part-fill" style="width:${d.percent}%;background:${def.color}"></div></div>
+                <div class="strip-part-pct">${d.percent}%</div>
+              </div>`;
+          }).join('')}
+        </div>
+
+        <div class="strip-total">
+          <span class="strip-total-label">ציון כולל במבדק:</span>
+          <span class="strip-total-value">${t.percent}%</span>
+          <span class="strip-total-raw">(${t.raw} מתוך ${t.totalMax} נקודות)</span>
+        </div>
+
+        <div class="strip-note-area">
+          <div class="strip-note-label">הערת המורה:</div>
+          ${s.feedback ? `<div class="strip-note-typed">${escapeHtml(s.feedback)}</div>` : ''}
+          <div class="strip-handwriting-line"></div>
+          <div class="strip-handwriting-line"></div>
+        </div>
+
+        <div class="strip-cut">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - גזירה - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+      </div>`;
+  }).filter(s => s).join('');
+
+  let html = `
+    <style>
+      @page { size: A4 portrait; margin: 10mm 12mm; }
+      body, html { background: white; color: black; font-family: 'Heebo','Arial',sans-serif; margin: 0; padding: 0; }
+
+      .strip-pdf {
+        padding: 4mm 0 2mm;
+        background: white;
+        color: #0f172a;
+        font-size: 9pt;
+        line-height: 1.3;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        display: flex; flex-direction: column;
+        gap: 2.5mm;
+      }
+
+      .strip-header {
+        display: flex; justify-content: space-between; align-items: baseline;
+        border-bottom: 1.5px solid #4f46e5; padding-bottom: 1.5mm;
+      }
+      .strip-eyebrow { font-size: 8pt; color: #64748b; }
+      .strip-name    { font-size: 13pt; font-weight: 800; line-height: 1.1; margin-top: .5mm; }
+
+      .strip-intro {
+        font-size: 8.5pt; line-height: 1.4; color: #334155;
+        background: #f1f5f9; padding: 2mm 3mm; border-radius: 1mm;
+      }
+      .strip-intro strong { color: #1e293b; }
+
+      .strip-parts {
+        display: flex; flex-direction: column; gap: 2mm;
+      }
+      .strip-part-row {
+        display: grid;
+        grid-template-columns: auto 1fr 50mm auto;
+        align-items: center;
+        gap: 3mm;
+      }
+      .strip-part-dot { width: 3mm; height: 3mm; border-radius: 50%; flex-shrink: 0; }
+      .strip-part-info { min-width: 0; }
+      .strip-part-name { font-size: 9.5pt; font-weight: 700; line-height: 1.15; }
+      .strip-part-desc { font-size: 7.5pt; color: #64748b; line-height: 1.25; margin-top: .3mm; }
+      .strip-part-bar  { height: 2.5mm; background: #e2e8f0; border-radius: 1.25mm; overflow: hidden; }
+      .strip-part-fill { height: 100%; border-radius: 1.25mm; }
+      .strip-part-pct  { font-size: 11pt; font-weight: 700; min-width: 11mm; text-align: left; color: #0f172a; }
+
+      .strip-total {
+        display: flex; align-items: baseline; gap: 2mm;
+        border-top: 1.5px solid #4f46e5; border-bottom: 1.5px solid #4f46e5;
+        padding: 2mm 3mm; background: #eef2ff; border-radius: 1mm;
+      }
+      .strip-total-label { font-size: 10pt; font-weight: 700; color: #1e293b; }
+      .strip-total-value { font-size: 18pt; font-weight: 800; color: #4f46e5; }
+      .strip-total-raw   { font-size: 9pt; color: #64748b; }
+
+      .strip-note-area { font-size: 9pt; }
+      .strip-note-label { font-weight: 700; color: #1e293b; margin-bottom: 1mm; }
+      .strip-note-typed {
+        background: #fef3c7; border-right: 2.5px solid #d97706;
+        padding: 1.5mm 3mm; border-radius: 1mm; margin-bottom: 1.5mm;
+        font-size: 8.5pt; line-height: 1.35;
+      }
+      .strip-handwriting-line {
+        border-bottom: 1px solid #94a3b8;
+        height: 6mm;
+        margin-bottom: 1mm;
+      }
+
+      .strip-cut {
+        text-align: center; font-size: 7pt; color: #94a3b8;
+        margin-top: 2mm; padding-top: 2mm;
+        border-top: 1.5px dashed #94a3b8;
+        white-space: nowrap; overflow: hidden;
+      }
+      .strip-pdf:last-child .strip-cut { display: none; }
+    </style>
+    ${slips}
+  `;
+  printView.innerHTML = html;
+  printView.style.display = 'block';
+
+  // hide other content for print
+  const screens = document.querySelectorAll('.screen, header, nav');
+  screens.forEach(s => s.classList.add('no-print'));
+
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      printView.style.display = 'none';
+      printView.innerHTML = '';
+    }, 500);
+  }, 100);
+}
+
+/* ===========================================================
+   INIT
+   =========================================================== */
+function applyLoadedState(loaded) {
+  state.teacher   = loaded.teacher;
+  state.className = loaded.className;
+  state.sector    = loaded.sector;
+  state.students  = loaded.students || [];
+  state.currentStudentId = null;
+  // mark sector visually in setup screen (in case user goes back)
+  document.querySelectorAll('.sector-opt').forEach(b => {
+    if (b.dataset.sector === state.sector) {
+      b.classList.add('border-indigo-600','bg-indigo-50');
+      b.style.borderColor='#4f46e5';
+    }
+  });
+  document.getElementById('setup-teacher').value = state.teacher;
+  document.getElementById('setup-class').value   = state.className;
+  updateTopBarAfterSession();
+  goTo('roster');
+}
+
+function offerResume() {
+  let saved;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    saved = JSON.parse(raw);
+  } catch(e) { return false; }
+  if (!saved || !saved.sector || !saved.teacher) return false;
+
+  const savedDate = saved.savedAt ? new Date(saved.savedAt).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' }) : '';
+  const nStudents = (saved.students||[]).length;
+  showModal('נמצא קידוד פתוח במחשב זה',
+    `<div class="text-sm space-y-2">
+       <div class="p-3 rounded-lg bg-indigo-50 border border-indigo-200">
+         <div><strong>מורה:</strong> ${escapeHtml(saved.teacher)}</div>
+         <div><strong>כיתה:</strong> ${escapeHtml(saved.className)}</div>
+         <div><strong>נוסח:</strong> ${escapeHtml(TEST_SCHEMA[saved.sector]?.name||'')}</div>
+         <div><strong>תלמידים:</strong> ${nStudents}</div>
+         <div class="text-xs text-slate-500 mt-1">נשמר אחרון: ${savedDate}</div>
+       </div>
+       <p>להמשיך מאיפה שהפסקת או להתחיל מחדש?</p>
+     </div>`,
+    () => applyLoadedState(saved), 'המשך מאיפה שהפסקתי');
+  // change cancel label
+  const footer = document.querySelector('#modal .modal > .flex');
+  if (footer) {
+    const cancelBtn = footer.querySelectorAll('button')[1];
+    if (cancelBtn) {
+      cancelBtn.textContent = 'התחל מחדש';
+      cancelBtn.onclick = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        idbDel('mainFile').catch(()=>{});
+        closeModal();
+      };
+    }
+  }
+  return true;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  offerResume();
+  tryRestoreFileHandle();
+  // warn on close if unsaved
+  window.addEventListener('beforeunload', e => {
+    if (state.students.length > 0 && !state.fileHandle) {
+      // localStorage is already saved — just remind to export if no file linked
+      // skip prompt if everything is auto-saved already
+    }
+  });
+});
+</script>
+</body>
+</html>
