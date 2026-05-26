@@ -3443,7 +3443,7 @@ function openSlipsPreview(studentIds) {
 
         <div class="strip-cut">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - גזירה - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
       </div>`;
-  }).filter(s => s).join('');
+  }).filter(s => s);
 
   // Build text summary for sharing (used by Web Share API / WhatsApp link)
   const shareText = isSingleStudent
